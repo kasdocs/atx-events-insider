@@ -12,6 +12,17 @@ export default function BrowseContent() {
   const [filteredEvents, setFilteredEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Filter states
   const [selectedDate, setSelectedDate] = useState('');
@@ -215,7 +226,7 @@ export default function BrowseContent() {
       </div>
 
       {/* Filters Section - Collapsible on Mobile */}
-      <div className="bg-white border-b border-gray-200 sticky top-16 shadow-sm" style={{ zIndex: 50 }}>
+      <div className="bg-white border-b border-gray-200 sticky top-16 shadow-sm" style={{ zIndex: 45 }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 bg-white">
           
           {/* Mobile Filter Toggle Button */}
@@ -353,35 +364,48 @@ export default function BrowseContent() {
               </p>
             </div>
 
-            {sortedDates.map((date, index) => (
-              <div key={date} className="mb-8 md:mb-12">
-                {/* Sticky Date Header - Adjusted for mobile */}
+            {sortedDates.map((date, index) => {
+              // Calculate proper top position
+              const getTopPosition = () => {
+                if (!isMobile) return '200px'; // Desktop: navbar (64px) + filters section (~136px)
+                if (filtersOpen) return '460px'; // Mobile open: navbar (64px) + expanded filters (~396px)
+                return '140px'; // Mobile closed: navbar (64px) + filter button (76px)
+              };
+
+              return (
+              <div key={date} className="mb-8 md:mb-12" style={{ isolation: 'isolate' }}>
+                {/* Sticky Date Header */}
                 <div 
-                  className="sticky bg-white pt-4 md:pt-8 pb-3 md:pb-4 mb-4 md:mb-6 border-b-2"
+                  className="sticky bg-white border-b-2"
                   style={{
                     borderColor: '#7B2CBF',
-                    top: filtersOpen ? '345px' : '245px',
-                    zIndex: 45,
-                    marginLeft: '-1rem',
-                    marginRight: '-1rem',
-                    paddingLeft: '1rem',
-                    paddingRight: '1rem',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    zIndex: 40,
+                    marginLeft: isMobile ? '-1rem' : 'calc(-100vw + 50%)',
+                    marginRight: isMobile ? '-1rem' : 'calc(-100vw + 50%)',
+                    paddingLeft: isMobile ? '1rem' : 'calc(100vw - 50%)',
+                    paddingRight: isMobile ? '1rem' : 'calc(100vw - 50%)',
+                    paddingTop: '1rem',
+                    paddingBottom: '0.75rem',
+                    marginBottom: '1rem',
+                    boxShadow: isMobile ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                    top: getTopPosition(),
                   }}
                 >
-                  <h2 className="text-xl md:text-2xl font-bold" style={{color: '#7B2CBF'}}>
-                    {formatDateHeader(date)}
-                  </h2>
+                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <h2 className="text-xl md:text-2xl font-bold" style={{color: '#7B2CBF'}}>
+                      {formatDateHeader(date)}
+                    </h2>
+                  </div>
                 </div>
 
                 {/* Events Grid for this date */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6" style={{ isolation: 'isolate' }}>
                   {groupedEvents[date].map((event) => (
                     <EventCard key={event.id} event={event} />
                   ))}
                 </div>
               </div>
-            ))}
+            )})}
           </>
         ) : (
           <div className="text-center py-12">
