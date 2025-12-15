@@ -6,11 +6,12 @@ import Navbar from '@/app/components/Navbar';
 import EventCard from '@/app/components/EventCard';
 import { supabase } from '@/lib/supabase';
 
-export default function BrowsePage() {
+export default function BrowseContent() {
   const searchParams = useSearchParams();
   const [events, setEvents] = useState<any[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Filter states
   const [selectedDate, setSelectedDate] = useState('');
@@ -135,6 +136,15 @@ export default function BrowsePage() {
     setDateRange(null);
   };
 
+  // Check if any filters are active
+  const hasActiveFilters = () => {
+    return selectedDate !== '' || 
+           selectedNeighborhood !== 'all' || 
+           selectedType !== 'all' || 
+           selectedCost !== 'all' || 
+           dateRange !== null;
+  };
+
   // Group events by date
   const groupEventsByDate = (events: any[]) => {
     const grouped: { [key: string]: any[] } = {};
@@ -172,31 +182,31 @@ export default function BrowsePage() {
       <Navbar />
 
       {/* Hero Section */}
-      <div className="bg-gradient-to-b from-purple-50 to-white py-12">
+      <div className="bg-gradient-to-b from-purple-50 to-white py-8 md:py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-bold mb-2" style={{color: '#7B2CBF'}}>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{color: '#7B2CBF'}}>
             Browse Events
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-base md:text-lg text-gray-600">
             Find the perfect event for you in Austin
           </p>
         </div>
       </div>
 
       {/* Organizer CTA */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl p-6 border border-purple-200 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
+        <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl p-4 md:p-6 border border-purple-200 flex flex-col md:flex-row items-center justify-between gap-4">
           <div>
-            <h3 className="font-bold text-lg mb-1" style={{color: '#7B2CBF'}}>
+            <h3 className="font-bold text-base md:text-lg mb-1" style={{color: '#7B2CBF'}}>
               Event Organizer?
             </h3>
             <p className="text-sm text-gray-700">
-              Get your event featured on ATX Events Insider and reach thousands of Austinites
+              Get your event featured on ATX Events Insider
             </p>
           </div>
           
            <a href="/submit-event"
-            className="px-6 py-3 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap"
+            className="w-full md:w-auto px-6 py-3 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap text-center"
             style={{backgroundColor: '#FF006E'}}
           >
             Submit Your Event →
@@ -204,138 +214,164 @@ export default function BrowsePage() {
         </div>
       </div>
 
-      {/* Filters Section */}
-      <div className="bg-white border-b border-gray-200 sticky top-16 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            
-            {/* Date Filter */}
-            <div>
-              <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
-                📅 Date
-              </label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => {
-                  setSelectedDate(e.target.value);
-                  setDateRange(null);
-                }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
-
-            {/* Neighborhood Filter */}
-            <div>
-              <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
-                📍 Neighborhood
-              </label>
-              <select
-                value={selectedNeighborhood}
-                onChange={(e) => setSelectedNeighborhood(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+      {/* Filters Section - Collapsible on Mobile */}
+      <div className="bg-white border-b border-gray-200 sticky top-16 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 bg-white">
+          
+          {/* Mobile Filter Toggle Button */}
+          <div className="md:hidden py-4">
+            <button
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className="w-full flex items-center justify-between py-3 px-4 bg-purple-50 rounded-lg"
+            >
+              <span className="font-semibold" style={{color: '#7B2CBF'}}>
+                🔍 Filters {hasActiveFilters() && `(${filteredEvents.length})`}
+              </span>
+              <svg 
+                className={`w-5 h-5 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+                style={{color: '#7B2CBF'}}
               >
-                <option value="all">All Neighborhoods</option>
-                {neighborhoods.map((neighborhood) => (
-                  <option key={neighborhood} value={neighborhood}>
-                    {neighborhood}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Event Type Filter */}
-            <div>
-              <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
-                🎭 Event Type
-              </label>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="all">All Types</option>
-                {eventTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Cost Filter */}
-            <div>
-              <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
-                💵 Cost
-              </label>
-              <select
-                value={selectedCost}
-                onChange={(e) => setSelectedCost(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="all">All Events</option>
-                <option value="free">Free Only</option>
-                <option value="paid">Paid Only</option>
-              </select>
-            </div>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
           </div>
 
-          {/* Active Filter Display */}
-          {dateRange && (
-            <div className="mt-4 flex items-center gap-2">
-              <span className="text-sm text-gray-600">
-                Showing events from {new Date(dateRange.start).toLocaleDateString()} to {new Date(dateRange.end).toLocaleDateString()}
-              </span>
-              <button
-                onClick={clearFilters}
-                className="text-sm font-semibold hover:underline"
-                style={{color: '#FF006E'}}
-              >
-                Clear
-              </button>
-            </div>
-          )}
+          {/* Filters Grid */}
+          <div className={`${filtersOpen ? 'block' : 'hidden'} md:block py-4 md:py-6`}>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
+              
+              {/* Date Filter */}
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
+                  📅 Date
+                </label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => {
+                    setSelectedDate(e.target.value);
+                    setDateRange(null);
+                  }}
+                  className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm md:text-base"
+                />
+              </div>
 
-          {/* Clear Filters Button */}
-          {!dateRange && (
-            <div className="mt-4">
-              <button
-                onClick={clearFilters}
-                className="text-sm font-semibold hover:underline"
-                style={{color: '#FF006E'}}
-              >
-                Clear All Filters
-              </button>
+              {/* Neighborhood Filter */}
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
+                  📍 Neighborhood
+                </label>
+                <select
+                  value={selectedNeighborhood}
+                  onChange={(e) => setSelectedNeighborhood(e.target.value)}
+                  className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm md:text-base"
+                >
+                  <option value="all">All Neighborhoods</option>
+                  {neighborhoods.map((neighborhood) => (
+                    <option key={neighborhood} value={neighborhood}>
+                      {neighborhood}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Event Type Filter */}
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
+                  🎭 Event Type
+                </label>
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm md:text-base"
+                >
+                  <option value="all">All Types</option>
+                  {eventTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Cost Filter */}
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
+                  💵 Cost
+                </label>
+                <select
+                  value={selectedCost}
+                  onChange={(e) => setSelectedCost(e.target.value)}
+                  className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm md:text-base"
+                >
+                  <option value="all">All Events</option>
+                  <option value="free">Free Only</option>
+                  <option value="paid">Paid Only</option>
+                </select>
+              </div>
             </div>
-          )}
+
+            {/* Active Filter Display & Clear Button */}
+            <div className="mt-3 md:mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              {dateRange && (
+                <span className="text-xs md:text-sm text-gray-600">
+                  Showing events from {new Date(dateRange.start).toLocaleDateString()} to {new Date(dateRange.end).toLocaleDateString()}
+                </span>
+              )}
+              
+              {hasActiveFilters() && (
+                <button
+                  onClick={() => {
+                    clearFilters();
+                    setFiltersOpen(false);
+                  }}
+                  className="text-sm font-semibold hover:underline"
+                  style={{color: '#FF006E'}}
+                >
+                  Clear All Filters
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Events by Date */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         {loading ? (
           <div className="text-center py-12">
             <p className="text-gray-600">Loading events...</p>
           </div>
         ) : sortedDates.length > 0 ? (
           <>
-            <div className="mb-6">
-              <p className="text-gray-600">
+            <div className="mb-4 md:mb-6">
+              <p className="text-sm md:text-base text-gray-600">
                 Showing <span className="font-semibold">{filteredEvents.length}</span> event{filteredEvents.length !== 1 ? 's' : ''}
               </p>
             </div>
 
             {sortedDates.map((date) => (
-              <div key={date} className="mb-12">
-                {/* Sticky Date Header */}
-                <div className="sticky top-[200px] z-30 bg-white pt-8 pb-4 mb-6 border-b-2" style={{borderColor: '#7B2CBF'}}>
-                  <h2 className="text-2xl font-bold" style={{color: '#7B2CBF'}}>
+              <div key={date} className="mb-8 md:mb-12">
+                {/* Sticky Date Header - Adjusted for mobile */}
+                <div 
+                  className="sticky bg-white pt-4 md:pt-8 pb-3 md:pb-4 mb-4 md:mb-6 border-b-2 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" 
+                  style={{
+                    borderColor: '#7B2CBF',
+                    top: filtersOpen ? '280px' : '180px',
+                    zIndex: 45,
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                >
+                  <h2 className="text-xl md:text-2xl font-bold" style={{color: '#7B2CBF'}}>
                     {formatDateHeader(date)}
                   </h2>
                 </div>
 
                 {/* Events Grid for this date */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   {groupedEvents[date].map((event) => (
                     <EventCard key={event.id} event={event} />
                   ))}
@@ -345,10 +381,13 @@ export default function BrowsePage() {
           </>
         ) : (
           <div className="text-center py-12">
-            <p className="text-xl font-semibold text-gray-600 mb-2">No events found</p>
-            <p className="text-gray-500">Try adjusting your filters</p>
+            <p className="text-lg md:text-xl font-semibold text-gray-600 mb-2">No events found</p>
+            <p className="text-sm md:text-base text-gray-500">Try adjusting your filters</p>
             <button
-              onClick={clearFilters}
+              onClick={() => {
+                clearFilters();
+                setFiltersOpen(false);
+              }}
               className="mt-4 px-6 py-2 rounded-lg text-white font-semibold hover:opacity-90"
               style={{backgroundColor: '#7B2CBF'}}
             >
