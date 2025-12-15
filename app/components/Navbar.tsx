@@ -67,12 +67,16 @@ export default function Navbar() {
         <>
           {/* Backdrop */}
           <div 
-            className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-40 top-16"
+            className="md:hidden fixed inset-0 bg-black bg-opacity-50 top-16"
+            style={{ zIndex: 40 }}
             onClick={() => setMobileMenuOpen(false)}
           />
           
           {/* Menu Panel */}
-          <div className="md:hidden bg-white border-b border-gray-200 shadow-lg">
+          <div 
+            className="md:hidden bg-white border-b border-gray-200 shadow-lg relative"
+            style={{ zIndex: 50 }}
+          >
             <div className="px-4 py-6 space-y-4">
               <Link 
                 href="/browse" 
