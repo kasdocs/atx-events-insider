@@ -215,7 +215,7 @@ export default function BrowseContent() {
       </div>
 
       {/* Filters Section - Collapsible on Mobile */}
-      <div className="bg-white border-b border-gray-200 sticky top-16 z-40 shadow-sm">
+      <div className="bg-white border-b border-gray-200 sticky top-16 shadow-sm" style={{ zIndex: 50 }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 bg-white">
           
           {/* Mobile Filter Toggle Button */}
@@ -353,16 +353,20 @@ export default function BrowseContent() {
               </p>
             </div>
 
-            {sortedDates.map((date) => (
+            {sortedDates.map((date, index) => (
               <div key={date} className="mb-8 md:mb-12">
                 {/* Sticky Date Header - Adjusted for mobile */}
                 <div 
-                  className="sticky bg-white pt-4 md:pt-8 pb-3 md:pb-4 mb-4 md:mb-6 border-b-2 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" 
+                  className="sticky bg-white pt-4 md:pt-8 pb-3 md:pb-4 mb-4 md:mb-6 border-b-2"
                   style={{
                     borderColor: '#7B2CBF',
-                    top: filtersOpen ? '280px' : '180px',
+                    top: filtersOpen ? '345px' : '245px',
                     zIndex: 45,
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    marginLeft: '-1rem',
+                    marginRight: '-1rem',
+                    paddingLeft: '1rem',
+                    paddingRight: '1rem',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                   }}
                 >
                   <h2 className="text-xl md:text-2xl font-bold" style={{color: '#7B2CBF'}}>
