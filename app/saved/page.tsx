@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import type { Database } from '@/lib/database.types';
@@ -8,11 +8,14 @@ import Navbar from '@/app/components/Navbar';
 import EventCard from '@/app/components/EventCard';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
-type SavedRow = Database['public']['Tables']['saved_events']['Row'];
+type SavedRow = Pick<
+  Database['public']['Tables']['saved_events']['Row'],
+  'event_id' | 'created_at'
+>;
 
 export default function SavedEventsPage() {
   const router = useRouter();
-  const supabase = createSupabaseBrowserClient();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -21,8 +24,10 @@ export default function SavedEventsPage() {
     let cancelled = false;
 
     const load = async () => {
+      setLoading(true);
+
       const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr) console.error('auth.getUser error:', userErr);
+      if (userErr) console.error('getUser error:', userErr);
 
       const user = userData.user;
 
@@ -33,13 +38,16 @@ export default function SavedEventsPage() {
 
       const { data: savedRows, error: savedErr } = await supabase
         .from('saved_events')
-        .select('event_id')
+        .select('event_id, created_at')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .returns<SavedRow[]>();
 
       if (savedErr) console.error('saved_events query error:', savedErr);
 
-      const ids = (savedRows ?? []).map((r) => r.event_id);
+      const ids = (savedRows ?? [])
+        .map((r) => r.event_id)
+        .filter((id): id is number => typeof id === 'number');
 
       if (ids.length === 0) {
         if (!cancelled) {
@@ -52,18 +60,14 @@ export default function SavedEventsPage() {
       const { data: eventRows, error: eventsErr } = await supabase
         .from('events')
         .select('*')
-        .in('id', ids);
+        .in('id', ids)
+        .returns<EventRow[]>();
 
       if (eventsErr) console.error('events query error:', eventsErr);
 
       if (!cancelled) {
         const map = new Map((eventRows ?? []).map((e) => [e.id, e]));
-        const ordered = ids
-  .map((id) => map.get(id))
-  .filter((e): e is EventRow => Boolean(e));
-
-setEvents(ordered);
-
+        setEvents(ids.map((id) => map.get(id)).filter(Boolean) as EventRow[]);
         setLoading(false);
       }
     };
@@ -73,7 +77,7 @@ setEvents(ordered);
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, supabase]);
 
   return (
     <div className="min-h-screen bg-white">

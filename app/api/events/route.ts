@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 
 export async function GET() {
+  const supabase = createSupabaseServerAnonClient();
+
   const { data, error } = await supabase
     .from('events')
     .select(`
@@ -30,10 +32,9 @@ export async function GET() {
     return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
   }
 
-  // Normalize vibe so the frontend always gets an array
-  const normalized = (data ?? []).map((e: any) => ({
+  const normalized = (data ?? []).map((e) => ({
     ...e,
-    vibe: Array.isArray(e?.vibe) ? e.vibe : [],
+    vibe: Array.isArray(e.vibe) ? e.vibe : [],
   }));
 
   return NextResponse.json(normalized);

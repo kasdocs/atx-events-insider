@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 
 export async function GET() {
+  const supabase = createSupabaseServerAnonClient();
+
   const { data, error } = await supabase
     .from('stories')
     .select('*')
@@ -11,5 +13,5 @@ export async function GET() {
     return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
   }
 
-  return NextResponse.json(data || []);
+  return NextResponse.json(data ?? []);
 }

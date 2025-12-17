@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useMemo, useState } from 'react';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -9,6 +9,8 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,28 +24,38 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setLoading(true);
     setMessage('');
 
+    const cleanEmail = email.trim().toLowerCase();
+
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
-          email,
+          email: cleanEmail,
           password,
         });
         if (error) throw error;
+
         setMessage('Check your email for the confirmation link!');
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: cleanEmail,
           password,
         });
         if (error) throw error;
+
         onClose();
       }
-    } catch (error: any) {
-      setMessage(error.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      setMessage(msg);
     } finally {
       setLoading(false);
     }
   };
+
+  const isError =
+    message.toLowerCase().includes('invalid') ||
+    message.toLowerCase().includes('error') ||
+    message.toLowerCase().includes('failed');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
@@ -52,6 +64,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+          aria-label="Close"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -59,7 +72,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         </button>
 
         {/* Header */}
-        <h2 className="text-2xl font-bold mb-2" style={{color: '#7B2CBF'}}>
+        <h2 className="text-2xl font-bold mb-2" style={{ color: '#7B2CBF' }}>
           {isSignUp ? 'Create Account' : 'Welcome Back'}
         </h2>
         <p className="text-gray-600 mb-6">
@@ -69,7 +82,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         {/* Form */}
         <form onSubmit={handleAuth} className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
               Email
             </label>
             <input
@@ -83,7 +96,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
               Password
             </label>
             <input
@@ -98,7 +111,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           </div>
 
           {message && (
-            <div className={`p-3 rounded-lg text-sm ${message.includes('error') || message.includes('Invalid') ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+            <div className={`p-3 rounded-lg text-sm ${isError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
               {message}
             </div>
           )}
@@ -107,9 +120,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             type="submit"
             disabled={loading}
             className="w-full py-3 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
-            style={{backgroundColor: '#7B2CBF'}}
+            style={{ backgroundColor: '#7B2CBF' }}
           >
-            {loading ? 'Loading...' : (isSignUp ? 'Sign Up' : 'Sign In')}
+            {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
           </button>
         </form>
 
@@ -117,11 +130,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         <div className="mt-6 text-center">
           <button
             onClick={() => {
-              setIsSignUp(!isSignUp);
+              setIsSignUp((v) => !v);
               setMessage('');
             }}
             className="text-sm font-semibold hover:underline"
-            style={{color: '#FF006E'}}
+            style={{ color: '#FF006E' }}
+            type="button"
           >
             {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
           </button>

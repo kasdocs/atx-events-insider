@@ -1,430 +1,258 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
 import EventCard from '@/app/components/EventCard';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import type { Database } from '@/lib/database.types';
+
+type EventRow = Database['public']['Tables']['events']['Row'];
+
+type CostFilter = 'all' | 'free' | 'free_rsvp' | 'paid';
 
 export default function BrowseContent() {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const searchParams = useSearchParams();
-  const [events, setEvents] = useState<any[]>([]);
-  const [filteredEvents, setFilteredEvents] = useState<any[]>([]);
+
+  const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
 
-  // Check if mobile
+  // Filters
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<string>('all');
+  const [selectedCost, setSelectedCost] = useState<CostFilter>('all');
+
+  // Pull initial filters from URL (?date=, etc.)
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // Filter states
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState('all');
-  const [selectedType, setSelectedType] = useState('all');
-  const [selectedCost, setSelectedCost] = useState('all');
-  const [dateRange, setDateRange] = useState<{ start: string; end: string } | null>(null);
-
-  // Fetch events on mount
-  useEffect(() => {
-    fetchEvents();
-  }, []);
-
-  // Handle URL parameters from Quick Jump
-  useEffect(() => {
-    const dateParam = searchParams.get('date');
-    const weekendParam = searchParams.get('weekend');
-    const nextWeekParam = searchParams.get('nextweek');
-
-    if (dateParam) {
-      setSelectedDate(dateParam);
-      setDateRange(null);
-    } else if (weekendParam === 'true') {
-      const today = new Date();
-      const dayOfWeek = today.getDay();
-      
-      let daysUntilSaturday = 6 - dayOfWeek;
-      if (dayOfWeek === 0) daysUntilSaturday = 6;
-      if (dayOfWeek === 6) daysUntilSaturday = 0;
-      
-      const saturday = new Date(today);
-      saturday.setDate(today.getDate() + daysUntilSaturday);
-      
-      const sunday = new Date(saturday);
-      sunday.setDate(saturday.getDate() + 1);
-      
-      setDateRange({
-        start: saturday.toISOString().split('T')[0],
-        end: sunday.toISOString().split('T')[0]
-      });
-      setSelectedDate('');
-    } else if (nextWeekParam === 'true') {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      
-      const weekFromNow = new Date();
-      weekFromNow.setDate(weekFromNow.getDate() + 7);
-      
-      setDateRange({
-        start: tomorrow.toISOString().split('T')[0],
-        end: weekFromNow.toISOString().split('T')[0]
-      });
-      setSelectedDate('');
-    }
+    const date = searchParams.get('date') ?? '';
+    if (date) setSelectedDate(date);
   }, [searchParams]);
 
-  // Apply filters whenever filter states change
   useEffect(() => {
-    applyFilters();
-  }, [events, selectedDate, selectedNeighborhood, selectedType, selectedCost, dateRange]);
+    let cancelled = false;
 
-  const fetchEvents = async () => {
-    setLoading(true);
-    const today = new Date().toISOString().split('T')[0];
-    
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .gte('event_date', today)
-      .order('event_date', { ascending: true });
+    const fetchEvents = async () => {
+      setLoading(true);
 
-    if (error) {
-      console.error('Error fetching events:', error);
-    } else {
-      setEvents(data || []);
-    }
-    setLoading(false);
-  };
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('event_date', { ascending: true })
+        .returns<EventRow[]>();
 
-  const applyFilters = () => {
-    let filtered = [...events];
+      if (cancelled) return;
 
-    if (dateRange) {
-      filtered = filtered.filter(event => 
-        event.event_date >= dateRange.start && event.event_date <= dateRange.end
-      );
-    } else if (selectedDate) {
-      filtered = filtered.filter(event => event.event_date === selectedDate);
-    }
-
-    if (selectedNeighborhood !== 'all') {
-      filtered = filtered.filter(event => event.neighborhood === selectedNeighborhood);
-    }
-
-    if (selectedType !== 'all') {
-      const mainTypeMatches = filtered.filter(event => event.event_type === selectedType);
-      const subtypeMatches = filtered.filter(event => 
-        event.event_type !== selectedType && (
-          event.subtype_1 === selectedType ||
-          event.subtype_2 === selectedType ||
-          event.subtype_3 === selectedType
-        )
-      );
-      
-      filtered = [...mainTypeMatches, ...subtypeMatches];
-    }
-
-    if (selectedCost === 'free') {
-      filtered = filtered.filter(event => event.pricing_type === 'Free');
-    } else if (selectedCost === 'paid') {
-      filtered = filtered.filter(event => event.pricing_type === 'Ticketed' || event.pricing_type === 'Free with RSVP');
-    }
-
-    setFilteredEvents(filtered);
-  };
-
-  const clearFilters = () => {
-    setSelectedDate('');
-    setSelectedNeighborhood('all');
-    setSelectedType('all');
-    setSelectedCost('all');
-    setDateRange(null);
-  };
-
-  // Check if any filters are active
-  const hasActiveFilters = () => {
-    return selectedDate !== '' || 
-           selectedNeighborhood !== 'all' || 
-           selectedType !== 'all' || 
-           selectedCost !== 'all' || 
-           dateRange !== null;
-  };
-
-  // Group events by date
-  const groupEventsByDate = (events: any[]) => {
-    const grouped: { [key: string]: any[] } = {};
-    
-    events.forEach(event => {
-      const date = event.event_date;
-      if (!grouped[date]) {
-        grouped[date] = [];
+      if (error) {
+        console.error('Error fetching events:', error);
+        setEvents([]);
+      } else {
+        setEvents(data ?? []);
       }
-      grouped[date].push(event);
-    });
-    
-    return grouped;
-  };
 
-  // Format date for section headers
-  const formatDateHeader = (dateString: string) => {
+      setLoading(false);
+    };
+
+    fetchEvents();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
+
+  const neighborhoods = Array.from(
+    new Set(events.map((e) => e.neighborhood).filter((v): v is string => !!v))
+  ).sort();
+
+  const eventTypes = Array.from(
+    new Set(events.map((e) => e.event_type).filter((v): v is string => !!v))
+  ).sort();
+
+  const filteredEvents = events.filter((e) => {
+    const d = e.event_date ?? '';
+
+    if (selectedDate && d !== selectedDate) return false;
+
+    if (selectedNeighborhood !== 'all' && e.neighborhood !== selectedNeighborhood) return false;
+
+    if (selectedType !== 'all' && e.event_type !== selectedType) return false;
+
+    if (selectedCost !== 'all') {
+      const pricing = e.pricing_type ?? '';
+      if (selectedCost === 'free' && pricing !== 'Free') return false;
+      if (selectedCost === 'free_rsvp' && pricing !== 'Free with RSVP') return false;
+      if (selectedCost === 'paid' && (pricing === 'Free' || pricing === 'Free with RSVP')) return false;
+    }
+
+    return true;
+  });
+
+  // --- Sticky date grouping helpers ---
+  const groupedByDate = filteredEvents.reduce<Record<string, EventRow[]>>((acc, ev) => {
+    const key = ev.event_date ?? '';
+    if (!key) return acc;
+    (acc[key] ??= []).push(ev);
+    return acc;
+  }, {});
+
+  const dateKeys = Object.keys(groupedByDate).sort((a, b) => a.localeCompare(b));
+
+  const formatDateHeading = (dateString: string) => {
     const [year, month, day] = dateString.split('-');
-    const date = new Date(Number(year), Number(month) - 1, Number(day));
-    return date.toLocaleDateString('en-US', { 
+    const d = new Date(Number(year), Number(month) - 1, Number(day));
+    return d.toLocaleDateString('en-US', {
       weekday: 'long',
-      month: 'long', 
-      day: 'numeric'
+      month: 'long',
+      day: 'numeric',
     });
   };
-
-  const neighborhoods = Array.from(new Set(events.map(e => e.neighborhood).filter(Boolean)));
-  const eventTypes = Array.from(new Set(events.map(e => e.event_type).filter(Boolean)));
-
-  const groupedEvents = groupEventsByDate(filteredEvents);
-  const sortedDates = Object.keys(groupedEvents).sort();
+  // -------------------------------
 
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      {/* Hero Section */}
-      <div className="bg-gradient-to-b from-purple-50 to-white py-8 md:py-12">
+      {/* Header */}
+      <div className="bg-gradient-to-b from-purple-50 to-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{color: '#7B2CBF'}}>
+          <h1 className="text-5xl font-bold mb-3" style={{ color: '#7B2CBF' }}>
             Browse Events
           </h1>
-          <p className="text-base md:text-lg text-gray-600">
-            Find the perfect event for you in Austin
-          </p>
+          <p className="text-xl text-gray-600">Find the perfect event for you in Austin</p>
         </div>
       </div>
 
       {/* Organizer CTA */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6">
-        <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl p-4 md:p-6 border border-purple-200 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6 flex items-center justify-between gap-6">
           <div>
-            <h3 className="font-bold text-base md:text-lg mb-1" style={{color: '#7B2CBF'}}>
+            <div className="text-xl font-bold mb-1" style={{ color: '#7B2CBF' }}>
               Event Organizer?
-            </h3>
-            <p className="text-sm text-gray-700">
-              Get your event featured on ATX Events Insider
-            </p>
+            </div>
+            <div className="text-gray-600">Get your event featured on ATX Events Insider</div>
           </div>
-          
-           <a href="/submit-event"
-            className="w-full md:w-auto px-6 py-3 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap text-center"
-            style={{backgroundColor: '#FF006E'}}
+          <a
+            href="/submit-event"
+            className="px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: '#FF006E' }}
           >
             Submit Your Event →
           </a>
         </div>
       </div>
 
-      {/* Filters Section - Collapsible on Mobile */}
-      <div className="bg-white border-b border-gray-200 sticky top-16 shadow-sm" style={{ zIndex: 45 }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 bg-white">
-          
-          {/* Mobile Filter Toggle Button */}
-          <div className="md:hidden py-4">
-            <button
-              onClick={() => setFiltersOpen(!filtersOpen)}
-              className="w-full flex items-center justify-between py-3 px-4 bg-purple-50 rounded-lg"
-            >
-              <span className="font-semibold" style={{color: '#7B2CBF'}}>
-                🔍 Filters {hasActiveFilters() && `(${filteredEvents.length})`}
-              </span>
-              <svg 
-                className={`w-5 h-5 transition-transform ${filtersOpen ? 'rotate-180' : ''}`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-                style={{color: '#7B2CBF'}}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Filters Grid */}
-          <div className={`${filtersOpen ? 'block' : 'hidden'} md:block py-4 md:py-6`}>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
-              
-              {/* Date Filter */}
-              <div>
-                <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
-                  📅 Date
-                </label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value);
-                    setDateRange(null);
-                  }}
-                  className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm md:text-base"
-                />
-              </div>
-
-              {/* Neighborhood Filter */}
-              <div>
-                <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
-                  📍 Neighborhood
-                </label>
-                <select
-                  value={selectedNeighborhood}
-                  onChange={(e) => setSelectedNeighborhood(e.target.value)}
-                  className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm md:text-base"
-                >
-                  <option value="all">All Neighborhoods</option>
-                  {neighborhoods.map((neighborhood) => (
-                    <option key={neighborhood} value={neighborhood}>
-                      {neighborhood}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Event Type Filter */}
-              <div>
-                <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
-                  🎭 Event Type
-                </label>
-                <select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm md:text-base"
-                >
-                  <option value="all">All Types</option>
-                  {eventTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Cost Filter */}
-              <div>
-                <label className="block text-sm font-semibold mb-2" style={{color: '#7B2CBF'}}>
-                  💵 Cost
-                </label>
-                <select
-                  value={selectedCost}
-                  onChange={(e) => setSelectedCost(e.target.value)}
-                  className="w-full px-3 md:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm md:text-base"
-                >
-                  <option value="all">All Events</option>
-                  <option value="free">Free Only</option>
-                  <option value="paid">Paid Only</option>
-                </select>
-              </div>
+      {/* Filters Row */}
+      <div className="border-b border-gray-200 mt-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Date */}
+            <div>
+              <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
+                📅 Date
+              </label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
             </div>
 
-            {/* Active Filter Display & Clear Button */}
-            <div className="mt-3 md:mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-              {dateRange && (
-                <span className="text-xs md:text-sm text-gray-600">
-                  Showing events from {new Date(dateRange.start).toLocaleDateString()} to {new Date(dateRange.end).toLocaleDateString()}
-                </span>
-              )}
-              
-              {hasActiveFilters() && (
-                <button
-                  onClick={() => {
-                    clearFilters();
-                    setFiltersOpen(false);
-                  }}
-                  className="text-sm font-semibold hover:underline"
-                  style={{color: '#FF006E'}}
-                >
-                  Clear All Filters
-                </button>
-              )}
+            {/* Neighborhood */}
+            <div>
+              <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
+                📍 Neighborhood
+              </label>
+              <select
+                value={selectedNeighborhood}
+                onChange={(e) => setSelectedNeighborhood(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="all">All Neighborhoods</option>
+                {neighborhoods.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Event Type */}
+            <div>
+              <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
+                🎭 Event Type
+              </label>
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="all">All Types</option>
+                {eventTypes.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Cost */}
+            <div>
+              <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
+                💸 Cost
+              </label>
+              <select
+                value={selectedCost}
+                onChange={(e) => setSelectedCost(e.target.value as CostFilter)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="all">All Events</option>
+                <option value="free">Free</option>
+                <option value="free_rsvp">Free with RSVP</option>
+                <option value="paid">Paid</option>
+              </select>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Events by Date */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      {/* Results */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600">Loading events...</p>
-          </div>
-        ) : sortedDates.length > 0 ? (
-          <>
-            <div className="mb-4 md:mb-6">
-              <p className="text-sm md:text-base text-gray-600">
-                Showing <span className="font-semibold">{filteredEvents.length}</span> event{filteredEvents.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-
-            {sortedDates.map((date, index) => {
-              // Calculate proper top position
-              const getTopPosition = () => {
-                if (!isMobile) return '200px'; // Desktop: navbar (64px) + filters section (~136px)
-                if (filtersOpen) return '460px'; // Mobile open: navbar (64px) + expanded filters (~396px)
-                return '140px'; // Mobile closed: navbar (64px) + filter button (76px)
-              };
-
-              return (
-              <div key={date} className="mb-8 md:mb-12" style={{ isolation: 'isolate' }}>
-                {/* Sticky Date Header */}
-                <div 
-                  className="sticky bg-white border-b-2"
-                  style={{
-                    borderColor: '#7B2CBF',
-                    zIndex: 40,
-                    marginLeft: isMobile ? '-1rem' : 'calc(-100vw + 50%)',
-                    marginRight: isMobile ? '-1rem' : 'calc(-100vw + 50%)',
-                    paddingLeft: isMobile ? '1rem' : 'calc(100vw - 50%)',
-                    paddingRight: isMobile ? '1rem' : 'calc(100vw - 50%)',
-                    paddingTop: '1rem',
-                    paddingBottom: '0.75rem',
-                    marginBottom: '1rem',
-                    boxShadow: isMobile ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-                    top: getTopPosition(),
-                  }}
-                >
-                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <h2 className="text-xl md:text-2xl font-bold" style={{color: '#7B2CBF'}}>
-                      {formatDateHeader(date)}
-                    </h2>
-                  </div>
-                </div>
-
-                {/* Events Grid for this date */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6" style={{ isolation: 'isolate' }}>
-                  {groupedEvents[date].map((event) => (
-                    <EventCard key={event.id} event={event} />
-                  ))}
-                </div>
-              </div>
-            )})}
-          </>
+          <div className="text-gray-600">Loading events...</div>
         ) : (
-          <div className="text-center py-12">
-            <p className="text-lg md:text-xl font-semibold text-gray-600 mb-2">No events found</p>
-            <p className="text-sm md:text-base text-gray-500">Try adjusting your filters</p>
-            <button
-              onClick={() => {
-                clearFilters();
-                setFiltersOpen(false);
-              }}
-              className="mt-4 px-6 py-2 rounded-lg text-white font-semibold hover:opacity-90"
-              style={{backgroundColor: '#7B2CBF'}}
-            >
-              Clear Filters
-            </button>
-          </div>
+          <>
+            <div className="text-gray-600 mb-6">Showing {filteredEvents.length} events</div>
+
+            {filteredEvents.length === 0 ? (
+              <div className="text-gray-600">No events match your filters.</div>
+            ) : (
+              <div className="space-y-10">
+                {dateKeys.map((dateKey) => (
+                  <section key={dateKey} className="space-y-6">
+                    {/* Sticky Date Header */}
+                    <div className="sticky top-16 z-20 bg-white/95 backdrop-blur border-b border-gray-200">
+                      <div className="py-4">
+                        <h2 className="text-3xl font-bold" style={{ color: '#7B2CBF' }}>
+                          {formatDateHeading(dateKey)}
+                        </h2>
+                      </div>
+                    </div>
+
+                    {/* Events for this date */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {groupedByDate[dateKey].map((event) => (
+                        <EventCard key={event.id} event={event} />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
-      
     </div>
   );
 }

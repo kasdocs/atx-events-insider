@@ -1,7 +1,7 @@
-import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 
 export async function requireAuth() {
-  const supabase = createSupabaseServerClient();
+  const supabase = createSupabaseServerAnonClient();
   const { data } = await supabase.auth.getUser();
 
   if (!data.user) {

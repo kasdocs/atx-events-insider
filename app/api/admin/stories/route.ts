@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 
 async function checkAuth() {
   const cookieStore = await cookies();
@@ -9,19 +9,13 @@ async function checkAuth() {
 }
 
 export async function POST(req: Request) {
-  if (!await checkAuth()) {
-    return new NextResponse('Unauthorized', { status: 401 });
-  }
+  if (!(await checkAuth())) return new NextResponse('Unauthorized', { status: 401 });
 
-  const data = await req.json();
+  const supabase = createSupabaseServerAnonClient();
+  const payload = await req.json();
 
-  const { error } = await supabase
-    .from('stories')
-    .insert([data]);
+  const { error } = await supabase.from('stories').insert(payload);
 
-  if (error) {
-    return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
-  }
-
+  if (error) return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
   return NextResponse.json({ success: true });
 }

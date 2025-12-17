@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
+import type { Database } from '@/lib/database.types';
 
 async function checkAuth() {
   const cookieStore = await cookies();
@@ -8,49 +9,33 @@ async function checkAuth() {
   return authenticated?.value === 'true';
 }
 
-export async function PUT(
-  req: Request, 
-  props: { params: Promise<{ id: string }> }
-) {
-  if (!await checkAuth()) {
-    return new NextResponse('Unauthorized', { status: 401 });
-  }
+type EventUpdate = Database['public']['Tables']['events']['Update'];
 
+export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
+  if (!(await checkAuth())) return new NextResponse('Unauthorized', { status: 401 });
+
+  const supabase = createSupabaseServerAnonClient();
   const params = await props.params;
-  const data = await req.json();
-  const id = params.id;
 
-  const { error } = await supabase
-    .from('events')
-    .update(data)
-    .eq('id', id);
+  const id = Number(params.id);
+  const payload = (await req.json()) as EventUpdate;
 
-  if (error) {
-    return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
-  }
+  const { error } = await supabase.from('events').update(payload).eq('id', id);
 
+  if (error) return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
   return NextResponse.json({ success: true });
 }
 
-export async function DELETE(
-  req: Request,
-  props: { params: Promise<{ id: string }> }
-) {
-  if (!await checkAuth()) {
-    return new NextResponse('Unauthorized', { status: 401 });
-  }
+export async function DELETE(_req: Request, props: { params: Promise<{ id: string }> }) {
+  if (!(await checkAuth())) return new NextResponse('Unauthorized', { status: 401 });
 
+  const supabase = createSupabaseServerAnonClient();
   const params = await props.params;
-  const id = params.id;
 
-  const { error } = await supabase
-    .from('events')
-    .delete()
-    .eq('id', id);
+  const id = Number(params.id);
 
-  if (error) {
-    return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
-  }
+  const { error } = await supabase.from('events').delete().eq('id', id);
 
+  if (error) return new NextResponse(JSON.stringify({ error: error.message }), { status: 500 });
   return NextResponse.json({ success: true });
 }
