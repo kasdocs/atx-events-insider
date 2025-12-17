@@ -4,12 +4,50 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
+export const VIBE_OPTIONS = [
+  { value: "good_for_groups", label: "Good for Groups" },
+  { value: "meet_people", label: "Meet People" },
+  { value: "date_night", label: "Date Night" },
+  { value: "family_friendly", label: "Family-friendly" },
+  { value: "kid_friendly", label: "Kid-friendly" },
+  { value: "pet_friendly", label: "Pet-friendly" },
+  { value: "low_key", label: "Low Key" },
+  { value: "high_energy", label: "High Energy" },
+  { value: "chill", label: "Chill" },
+  { value: "cozy", label: "Cozy" },
+  { value: "dancey", label: "Dancey" },
+  { value: "live_music", label: "Live Music" },
+  { value: "dj_set", label: "DJ Set" },
+  { value: "late_night", label: "Late Night" },
+  { value: "food_trucks_nearby", label: "Food Trucks Nearby" },
+  { value: "for_the_foodies", label: "For the Foodies" },
+  { value: "coffee_hang", label: "Coffee Hang" },
+  { value: "dessert_run", label: "Dessert Run" },
+  { value: "outdoor_hang", label: "Outdoor Hang" },
+  { value: "sweat_level_light", label: "Sweat Level Light" },
+  { value: "sweat_level_real", label: "Sweat Level Real" },
+  { value: "artsy", label: "Artsy" },
+  { value: "makers", label: "Makers" },
+  { value: "diy", label: "DIY" },
+  { value: "nerdy", label: "Nerdy" },
+  { value: "vintage", label: "Vintage" },
+  { value: "thrifty", label: "Thrifty" },
+  { value: "grounding", label: "Grounding" },
+  { value: "soft_morning", label: "Soft Morning" },
+  { value: "beginner_friendly", label: "Beginner Friendly" },
+  { value: "civic_action", label: "Civic Action" },
+  { value: "protest", label: "Protest" },
+] as const;
+
+type VibeValue = (typeof VIBE_OPTIONS)[number]["value"];
+
 type Event = {
   id: number;
   title: string;
   event_date: string;
   location: string;
   event_type: string;
+  vibe?: VibeValue[]; // NEW
   subtype_1?: string;
   subtype_2?: string;
   slug?: string;
@@ -39,18 +77,18 @@ type Story = {
 };
 
 const story_type = [
-'Event Recap',
-'Venue Spotlight',
-'Interview',
-'Neighborhood Guide',
-'Tips & Guides',
-'Seasonal Roundup',
-'Hidden Gems',
-'Food & Drink Focus',
-'Community Stories',
-'Event Preview',
-'Top Lists',
-'News & Announcements'
+  'Event Recap',
+  'Venue Spotlight',
+  'Interview',
+  'Neighborhood Guide',
+  'Tips & Guides',
+  'Seasonal Roundup',
+  'Hidden Gems',
+  'Food & Drink Focus',
+  'Community Stories',
+  'Event Preview',
+  'Top Lists',
+  'News & Announcements'
 ];
 
 type Subscriber = {
@@ -60,6 +98,10 @@ type Subscriber = {
   source: string;
   active: boolean;
 };
+
+function formatVibeLabel(value: string) {
+  return value.replaceAll('_', ' ');
+}
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('events');
@@ -104,30 +146,30 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="bg-white rounded-lg shadow-sm border">
           <div className="border-b flex">
-            <button 
-              onClick={() => setActiveTab('events')} 
+            <button
+              onClick={() => setActiveTab('events')}
               className={`px-6 py-4 font-semibold ${activeTab === 'events' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
             >
               Events
             </button>
-            <button 
-              onClick={() => setActiveTab('stories')} 
+            <button
+              onClick={() => setActiveTab('stories')}
               className={`px-6 py-4 font-semibold ${activeTab === 'stories' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
             >
               Stories
             </button>
-            <button 
-              onClick={() => setActiveTab('subscribers')} 
+            <button
+              onClick={() => setActiveTab('subscribers')}
               className={`px-6 py-4 font-semibold ${activeTab === 'subscribers' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
             >
               Newsletter Subscribers
             </button>
-            <button 
-  onClick={() => setActiveTab('submissions')} 
-  className={`px-6 py-4 font-semibold ${activeTab === 'submissions' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
->
-  Submissions
-</button>
+            <button
+              onClick={() => setActiveTab('submissions')}
+              className={`px-6 py-4 font-semibold ${activeTab === 'submissions' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
+            >
+              Submissions
+            </button>
           </div>
           <div className="p-6">
             {activeTab === 'events' && <EventsManager />}
@@ -167,7 +209,7 @@ function EventsManager() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this event?')) return;
-    
+
     await fetch(`/api/admin/events/${id}`, { method: 'DELETE' });
     fetchEvents();
   };
@@ -200,8 +242,8 @@ function EventsManager() {
       </div>
 
       {showForm && (
-        <EventForm 
-          event={editingEvent} 
+        <EventForm
+          event={editingEvent}
           onClose={handleFormClose}
         />
       )}
@@ -214,43 +256,52 @@ function EventsManager() {
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Title</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Location</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Event Type</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Vibe</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Pricing</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {events.map((event) => (
-                <tr key={event.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">{event.title}</td>
-                  <td className="px-4 py-3 text-sm">{new Date(event.event_date).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-sm">{event.location}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
-                      {event.event_type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
-                      {event.pricing_type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <button
-                      onClick={() => handleEdit(event)}
-                      className="text-blue-600 hover:text-blue-800 mr-3"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(event.id)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {events.map((event) => {
+                const primaryVibe = event.vibe?.[0];
+                return (
+                  <tr key={event.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm">{event.title}</td>
+                    <td className="px-4 py-3 text-sm">{new Date(event.event_date).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-sm">{event.location}</td>
+                    <td className="px-4 py-3 text-sm">
+                      {primaryVibe ? (
+                        <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                          {formatVibeLabel(primaryVibe)}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                          none
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
+                        {event.pricing_type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <button
+                        onClick={() => handleEdit(event)}
+                        className="text-blue-600 hover:text-blue-800 mr-3"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(event.id)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {events.length === 0 && (
@@ -271,6 +322,7 @@ function EventForm({ event, onClose }: { event: Event | null; onClose: () => voi
     time: event?.time || '',
     location: event?.location || '',
     event_type: event?.event_type || 'Music',
+    vibe: (event?.vibe || []) as VibeValue[], // NEW
     subtype_1: event?.subtype_1 || '',
     subtype_2: event?.subtype_2 || '',
     subtype_3: event?.subtype_3 || '',
@@ -287,7 +339,7 @@ function EventForm({ event, onClose }: { event: Event | null; onClose: () => voi
 
   const eventTypes = [
     'Music',
-    'Food & Drink', 
+    'Food & Drink',
     'Art & Culture',
     'Nightlife',
     'Sports & Fitness',
@@ -321,35 +373,54 @@ function EventForm({ event, onClose }: { event: Event | null; onClose: () => voi
 
   const pricingTypes = ['Free', 'Free with RSVP', 'Ticketed'];
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setSaving(true);
+  const toggleVibe = (value: VibeValue) => {
+    setFormData((prev) => {
+      const current = prev.vibe ?? [];
+      const exists = current.includes(value);
 
-  // Auto-generate slug from title and date
-  const slug = `${formData.title}-${formData.event_date}`
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-');
+      if (exists) {
+        return { ...prev, vibe: current.filter(v => v !== value) };
+      }
 
-  const dataToSubmit = { ...formData, slug };
+      if (current.length >= 3) {
+        return prev;
+      }
 
-  const url = event ? `/api/admin/events/${event.id}` : '/api/admin/events';
-  const method = event ? 'PUT' : 'POST';
+      return { ...prev, vibe: [...current, value] };
+    });
+  };
 
-  await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(dataToSubmit),
-  });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
 
-  setSaving(false);
-  onClose();
-};
+    // Auto-generate slug from title and date
+    const slug = `${formData.title}-${formData.event_date}`
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-');
+
+    const dataToSubmit = { ...formData, slug };
+
+    const url = event ? `/api/admin/events/${event.id}` : '/api/admin/events';
+    const method = event ? 'PUT' : 'POST';
+
+    await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dataToSubmit),
+    });
+
+    setSaving(false);
+    onClose();
+  };
+
+  const atVibeCap = (formData.vibe?.length ?? 0) >= 3;
 
   return (
     <form onSubmit={handleSubmit} className="mb-6 p-6 bg-gray-50 rounded-lg border">
       <h3 className="text-lg font-bold mb-4 text-gray-800">{event ? 'Edit Event' : 'Add New Event'}</h3>
-      
+
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
           <label className="block text-sm font-semibold mb-2 text-gray-700">Title *</label>
@@ -357,17 +428,17 @@ const handleSubmit = async (e: React.FormEvent) => {
             type="text"
             required
             value={formData.title}
-            onChange={(e) => setFormData({...formData, title: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-semibold mb-2 text-gray-700">Event Type *</label>
           <select
             required
             value={formData.event_type}
-            onChange={(e) => setFormData({...formData, event_type: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           >
             {eventTypes.map(type => (
@@ -376,11 +447,44 @@ const handleSubmit = async (e: React.FormEvent) => {
           </select>
         </div>
 
+        {/* NEW: Vibe checklist */}
+        <div className="col-span-2">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-semibold text-gray-700">Vibe (max 3)</label>
+            <span className="text-xs text-gray-500">
+              Selected: {formData.vibe?.length ?? 0}/3
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 bg-white border border-gray-200 rounded-lg p-3">
+            {VIBE_OPTIONS.map(({ value, label }) => {
+              const checked = (formData.vibe ?? []).includes(value);
+              return (
+                <label key={value} className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleVibe(value)}
+                    disabled={!checked && atVibeCap}
+                  />
+                  {label}
+                </label>
+              );
+            })}
+          </div>
+
+          {atVibeCap && (
+            <div className="text-xs text-gray-500 mt-2">
+              You have hit the limit. Uncheck one to add another.
+            </div>
+          )}
+        </div>
+
         <div>
           <label className="block text-sm font-semibold mb-2 text-gray-700">Subtype 1</label>
           <select
             value={formData.subtype_1}
-            onChange={(e) => setFormData({...formData, subtype_1: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, subtype_1: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           >
             <option value="">None</option>
@@ -394,7 +498,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <label className="block text-sm font-semibold mb-2 text-gray-700">Subtype 2</label>
           <select
             value={formData.subtype_2}
-            onChange={(e) => setFormData({...formData, subtype_2: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, subtype_2: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           >
             <option value="">None</option>
@@ -408,7 +512,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <label className="block text-sm font-semibold mb-2 text-gray-700">Subtype 3</label>
           <select
             value={formData.subtype_3}
-            onChange={(e) => setFormData({...formData, subtype_3: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, subtype_3: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           >
             <option value="">None</option>
@@ -422,7 +526,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <label className="block text-sm font-semibold mb-2 text-gray-700">Neighborhood</label>
           <select
             value={formData.neighborhood}
-            onChange={(e) => setFormData({...formData, neighborhood: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           >
             <option value="">Select neighborhood</option>
@@ -438,7 +542,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             type="date"
             required
             value={formData.event_date}
-            onChange={(e) => setFormData({...formData, event_date: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           />
         </div>
@@ -448,7 +552,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <input
             type="time"
             value={formData.time}
-            onChange={(e) => setFormData({...formData, time: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, time: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           />
         </div>
@@ -459,7 +563,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             type="text"
             required
             value={formData.location}
-            onChange={(e) => setFormData({...formData, location: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           />
         </div>
@@ -469,7 +573,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <select
             required
             value={formData.pricing_type}
-            onChange={(e) => setFormData({...formData, pricing_type: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, pricing_type: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           >
             {pricingTypes.map(type => (
@@ -483,7 +587,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <input
             type="text"
             value={formData.price}
-            onChange={(e) => setFormData({...formData, price: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
             placeholder="e.g., $20, $15-25"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           />
@@ -494,7 +598,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         <label className="block text-sm font-semibold mb-2 text-gray-700">Description</label>
         <textarea
           value={formData.description}
-          onChange={(e) => setFormData({...formData, description: e.target.value})}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           rows={3}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
         />
@@ -505,34 +609,33 @@ const handleSubmit = async (e: React.FormEvent) => {
         <input
           type="url"
           value={formData.image_url}
-          onChange={(e) => setFormData({...formData, image_url: e.target.value})}
+          onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
           placeholder="https://example.com/image.jpg"
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
         />
       </div>
 
       <div className="mb-4">
-  <label className="block text-sm font-semibold mb-2 text-gray-700">Instagram URL</label>
-  <input
-    type="url"
-    value={formData.instagram_url}
-    onChange={(e) => setFormData({...formData, instagram_url: e.target.value})}
-    placeholder="https://instagram.com/p/..."
-    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-  />
-</div>
+        <label className="block text-sm font-semibold mb-2 text-gray-700">Instagram URL</label>
+        <input
+          type="url"
+          value={formData.instagram_url}
+          onChange={(e) => setFormData({ ...formData, instagram_url: e.target.value })}
+          placeholder="https://instagram.com/p/..."
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+        />
+      </div>
 
-<div className="mb-4">
-  <label className="block text-sm font-semibold mb-2 text-gray-700">Insider Tip</label>
-  <input
-    type="text"
-    value={formData.insider_tip}
-    onChange={(e) => setFormData({...formData, insider_tip: e.target.value})}
-    placeholder="Share a tip for attendees"
-    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-  />
-</div>
-
+      <div className="mb-4">
+        <label className="block text-sm font-semibold mb-2 text-gray-700">Insider Tip</label>
+        <input
+          type="text"
+          value={formData.insider_tip}
+          onChange={(e) => setFormData({ ...formData, insider_tip: e.target.value })}
+          placeholder="Share a tip for attendees"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+        />
+      </div>
 
       <div className="flex gap-3">
         <button
@@ -553,6 +656,9 @@ const handleSubmit = async (e: React.FormEvent) => {
     </form>
   );
 }
+
+/* --------------------------- Stories Manager --------------------------- */
+
 function StoriesManager() {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
@@ -578,12 +684,10 @@ function StoriesManager() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this story?')) return;
-    
+
     await fetch(`/api/admin/stories/${id}`, { method: 'DELETE' });
     fetchStories();
   };
-
-
 
   const handleEdit = (story: Story) => {
     setEditingStory(story);
@@ -613,8 +717,8 @@ function StoriesManager() {
       </div>
 
       {showForm && (
-        <StoryForm 
-          story={editingStory} 
+        <StoryForm
+          story={editingStory}
           onClose={handleFormClose}
         />
       )}
@@ -683,12 +787,11 @@ function StoryForm({ story, onClose }: { story: Story | null; onClose: () => voi
     cover_image: story?.cover_image || '',
     published_date: story?.published_date || new Date().toISOString().split('T')[0],
     featured: story?.featured || false,
-  story_type: story?.story_type || '',
+    story_type: story?.story_type || '',
     event_id: story?.event_id || null,
   });
   const [saving, setSaving] = useState(false);
 
-  // Auto-generate slug from title
   const handleTitleChange = (title: string) => {
     setFormData({
       ...formData,
@@ -717,7 +820,7 @@ function StoryForm({ story, onClose }: { story: Story | null; onClose: () => voi
   return (
     <form onSubmit={handleSubmit} className="mb-6 p-6 bg-gray-50 rounded-lg border">
       <h3 className="text-lg font-bold mb-4 text-gray-800">{story ? 'Edit Story' : 'Add New Story'}</h3>
-      
+
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="col-span-2">
           <label className="block text-sm font-semibold mb-2 text-gray-700">Title *</label>
@@ -736,7 +839,7 @@ function StoryForm({ story, onClose }: { story: Story | null; onClose: () => voi
             type="text"
             required
             value={formData.slug}
-            onChange={(e) => setFormData({...formData, slug: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
             placeholder="auto-generated-from-title"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           />
@@ -748,7 +851,7 @@ function StoryForm({ story, onClose }: { story: Story | null; onClose: () => voi
             type="text"
             required
             value={formData.author}
-            onChange={(e) => setFormData({...formData, author: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, author: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           />
         </div>
@@ -759,7 +862,7 @@ function StoryForm({ story, onClose }: { story: Story | null; onClose: () => voi
             type="date"
             required
             value={formData.published_date}
-            onChange={(e) => setFormData({...formData, published_date: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, published_date: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
           />
         </div>
@@ -768,46 +871,44 @@ function StoryForm({ story, onClose }: { story: Story | null; onClose: () => voi
           <input
             type="checkbox"
             checked={formData.featured}
-            onChange={(e) => setFormData({...formData, featured: e.target.checked})}
+            onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
             className="mr-2"
           />
           <label className="text-sm font-semibold text-gray-700">Featured Story</label>
         </div>
       </div>
 
-          <div className="mb-4">
+      <div className="mb-4">
         <label className="block text-sm font-semibold mb-2 text-gray-700">Excerpt</label>
         <textarea
           value={formData.excerpt}
-          onChange={(e) => setFormData({...formData, excerpt: e.target.value})}
+          onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
           rows={2}
           placeholder="Short description for story cards..."
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
         />
       </div>
 
-    <div className="mb-4">
-    <label className="block text-sm font-semibold mb-2 text-gray-700">Story Type</label>
-    <select
-        value={formData.story_type || ''}
-        onChange={(e) => setFormData({...formData, story_type: e.target.value})}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-    >
-        <option value="">Select Story Type</option>
-        {story_type.map(type => (
-        <option key={type} value={type}>{type}</option>
-        ))}
-    </select>
-    </div>
-
-
+      <div className="mb-4">
+        <label className="block text-sm font-semibold mb-2 text-gray-700">Story Type</label>
+        <select
+          value={formData.story_type || ''}
+          onChange={(e) => setFormData({ ...formData, story_type: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+        >
+          <option value="">Select Story Type</option>
+          {story_type.map(type => (
+            <option key={type} value={type}>{type}</option>
+          ))}
+        </select>
+      </div>
 
       <div className="mb-4">
         <label className="block text-sm font-semibold mb-2 text-gray-700">Content *</label>
         <textarea
           required
           value={formData.content}
-          onChange={(e) => setFormData({...formData, content: e.target.value})}
+          onChange={(e) => setFormData({ ...formData, content: e.target.value })}
           rows={10}
           placeholder="Full story content..."
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
@@ -819,7 +920,7 @@ function StoryForm({ story, onClose }: { story: Story | null; onClose: () => voi
         <input
           type="url"
           value={formData.cover_image}
-          onChange={(e) => setFormData({...formData, cover_image: e.target.value})}
+          onChange={(e) => setFormData({ ...formData, cover_image: e.target.value })}
           placeholder="https://example.com/image.jpg"
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
         />
@@ -844,11 +945,15 @@ function StoryForm({ story, onClose }: { story: Story | null; onClose: () => voi
     </form>
   );
 }
+
+/* ------------------------ Subscribers + Submissions ------------------------ */
+/* These are unchanged except for one small addition in Submissions approve insert: vibe: [] */
+
 function SubscribersManager() {
   const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -857,46 +962,50 @@ function SubscribersManager() {
     fetchSubscribers();
   }, []);
 
-const fetchSubscribers = async () => {
-  setLoading(true);
-  try {
-    // Fetch directly from Supabase instead of using API route
-    const { data, error } = await supabase
-      .from('newsletter_subscribers')
-      .select('*')
-      .order('subscribed_at', { ascending: false });
+  const fetchSubscribers = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('newsletter_subscribers')
+        .select('*')
+        .order('subscribed_at', { ascending: false });
 
-    if (error) {
+      if (error) {
+        console.error('Error fetching subscribers:', error);
+        setSubscribers([]);
+      } else {
+        setSubscribers(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
       console.error('Error fetching subscribers:', error);
       setSubscribers([]);
-    } else {
-      setSubscribers(Array.isArray(data) ? data : []);
     }
-  } catch (error) {
-    console.error('Error fetching subscribers:', error);
-    setSubscribers([]);
-  }
-  setLoading(false);
-};
+    setLoading(false);
+  };
 
-const handleDelete = async (id: number) => {
-  if (!confirm('Are you sure you want to delete this subscriber?')) return;
-  
-  // Delete directly from Supabase
-  const { error } = await supabase
-    .from('newsletter_subscribers')
-    .delete()
-    .eq('id', id);
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this subscriber?')) return;
 
-  if (error) {
-    console.error('Error deleting subscriber:', error);
-    alert('Failed to delete subscriber');
-  }
-  
-  fetchSubscribers();
-};
+    const { error } = await supabase
+      .from('newsletter_subscribers')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting subscriber:', error);
+      alert('Failed to delete subscriber');
+    }
+
+    fetchSubscribers();
+  };
 
   const handleExport = () => {
+    const filteredSubscribers = subscribers.filter(sub => {
+      if (filter === 'active') return sub.active;
+      if (filter === 'inactive') return !sub.active;
+      return true;
+    });
+
     const csv = [
       ['Email', 'Subscribed At', 'Source', 'Status'].join(','),
       ...filteredSubscribers.map(sub => [
@@ -942,7 +1051,6 @@ const handleDelete = async (id: number) => {
         </button>
       </div>
 
-      {/* Filters */}
       <div className="mb-6 flex gap-2">
         <button
           onClick={() => setFilter('all')}
@@ -1021,12 +1129,13 @@ const handleDelete = async (id: number) => {
     </div>
   );
 }
+
 function SubmissionsManager() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
-  
+
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
@@ -1080,6 +1189,7 @@ function SubmissionsManager() {
           price: submission.price,
           instagram_url: submission.instagram_url,
           insider_tip: submission.insider_tip,
+          vibe: [], // NEW: submissions cannot set vibe, you assign later
         }]);
 
       if (eventError) throw eventError;
@@ -1147,9 +1257,9 @@ function SubmissionsManager() {
   if (loading) {
     return <div className="text-gray-600">Loading submissions...</div>;
   }
-if (editingSubmission) {
-  return <SubmissionEditForm submission={editingSubmission} onClose={() => { setEditingSubmission(null); fetchSubmissions(); }} onApprove={handleApprove} />;
-}
+  if (editingSubmission) {
+    return <SubmissionEditForm submission={editingSubmission} onClose={() => { setEditingSubmission(null); fetchSubmissions(); }} onApprove={handleApprove} />;
+  }
   if (viewingSubmission) {
     return (
       <div>
@@ -1236,33 +1346,33 @@ if (editingSubmission) {
           )}
 
           {viewingSubmission.status === 'pending' && (
-  <div className="flex gap-4 pt-6 border-t">
-    <button
-      onClick={() => setEditingSubmission(viewingSubmission)}
-      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
-    >
-      ✏️ Edit & Approve
-    </button>
-    <button
-      onClick={() => handleApprove(viewingSubmission)}
-      className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
-    >
-      ✓ Approve As-Is
-    </button>
-    <button
-      onClick={() => handleReject(viewingSubmission.id)}
-      className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold"
-    >
-      ✗ Reject
-    </button>
-    <button
-      onClick={() => handleDelete(viewingSubmission.id)}
-      className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
-    >
-      Delete
-    </button>
-  </div>
-)}
+            <div className="flex gap-4 pt-6 border-t">
+              <button
+                onClick={() => setEditingSubmission(viewingSubmission)}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+              >
+                ✏️ Edit & Approve
+              </button>
+              <button
+                onClick={() => handleApprove(viewingSubmission)}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+              >
+                ✓ Approve As-Is
+              </button>
+              <button
+                onClick={() => handleReject(viewingSubmission.id)}
+                className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold"
+              >
+                ✗ Reject
+              </button>
+              <button
+                onClick={() => handleDelete(viewingSubmission.id)}
+                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
+              >
+                Delete
+              </button>
+            </div>
+          )}
 
           {viewingSubmission.status !== 'pending' && (
             <div className="flex gap-4 pt-6 border-t">
@@ -1372,6 +1482,7 @@ if (editingSubmission) {
     </div>
   );
 }
+
 function SubmissionEditForm({ submission, onClose, onApprove }: { submission: any; onClose: () => void; onApprove: (submission: any) => void }) {
   const [formData, setFormData] = useState({
     title: submission.title,
@@ -1421,7 +1532,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
 
       <div className="bg-white rounded-lg shadow-lg border p-8">
         <h2 className="text-2xl font-bold mb-6 text-gray-800">Edit & Approve Submission</h2>
-        
+
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
             <strong>Submitted by:</strong> {submission.organizer_name} ({submission.organizer_email})
@@ -1436,7 +1547,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
                 type="text"
                 required
                 value={formData.title}
-                onChange={(e) => setFormData({...formData, title: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               />
             </div>
@@ -1445,7 +1556,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
               <label className="block text-sm font-semibold mb-2 text-gray-700">Event Type *</label>
               <select
                 value={formData.event_type}
-                onChange={(e) => setFormData({...formData, event_type: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               >
                 {eventTypes.map(type => <option key={type} value={type}>{type}</option>)}
@@ -1456,7 +1567,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
               <label className="block text-sm font-semibold mb-2 text-gray-700">Neighborhood</label>
               <select
                 value={formData.neighborhood}
-                onChange={(e) => setFormData({...formData, neighborhood: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               >
                 <option value="">Select neighborhood</option>
@@ -1469,7 +1580,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
               <input
                 type="date"
                 value={formData.event_date}
-                onChange={(e) => setFormData({...formData, event_date: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               />
             </div>
@@ -1479,7 +1590,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
               <input
                 type="time"
                 value={formData.time}
-                onChange={(e) => setFormData({...formData, time: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               />
             </div>
@@ -1489,7 +1600,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
               <input
                 type="text"
                 value={formData.location}
-                onChange={(e) => setFormData({...formData, location: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               />
             </div>
@@ -1498,7 +1609,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
               <label className="block text-sm font-semibold mb-2 text-gray-700">Pricing Type *</label>
               <select
                 value={formData.pricing_type}
-                onChange={(e) => setFormData({...formData, pricing_type: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, pricing_type: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               >
                 {pricingTypes.map(type => <option key={type} value={type}>{type}</option>)}
@@ -1510,7 +1621,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
               <input
                 type="text"
                 value={formData.price}
-                onChange={(e) => setFormData({...formData, price: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               />
             </div>
@@ -1519,7 +1630,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
               <label className="block text-sm font-semibold mb-2 text-gray-700">Description</label>
               <textarea
                 value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               />
@@ -1530,7 +1641,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
               <input
                 type="url"
                 value={formData.image_url}
-                onChange={(e) => setFormData({...formData, image_url: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               />
             </div>
@@ -1540,7 +1651,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
               <input
                 type="url"
                 value={formData.instagram_url}
-                onChange={(e) => setFormData({...formData, instagram_url: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, instagram_url: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               />
             </div>
@@ -1550,7 +1661,7 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
               <input
                 type="text"
                 value={formData.insider_tip}
-                onChange={(e) => setFormData({...formData, insider_tip: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, insider_tip: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
               />
             </div>
