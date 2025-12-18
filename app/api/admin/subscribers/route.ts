@@ -1,45 +1,63 @@
-import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { supabase } from '@/lib/supabase'
+import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { createSupabaseAdminClient } from '@/lib/supabase-admin';
+import type { Database } from '@/lib/database.types';
+
+type SubscriberRow = Database['public']['Tables']['newsletter_subscribers']['Row'];
+
+async function checkAuth() {
+  const cookieStore = await cookies();
+  return cookieStore.get('admin-authenticated')?.value === 'true';
+}
 
 export async function GET() {
-  const cookieStore = await cookies()
-  const auth = cookieStore.get('admin-authenticated')
-  
-  if (auth?.value !== 'true') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!(await checkAuth())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const supabase = createSupabaseAdminClient();
 
   const { data, error } = await supabase
     .from('newsletter_subscribers')
     .select('*')
     .order('subscribed_at', { ascending: false })
+    .returns<SubscriberRow[]>();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: error.message, details: error.details, hint: error.hint },
+      { status: 500 }
+    );
   }
 
-  return NextResponse.json(data || [])
+  return NextResponse.json(data ?? []);
 }
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies()
-  const auth = cookieStore.get('admin-authenticated')
-  
-  if (auth?.value !== 'true') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!(await checkAuth())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { id } = await req.json()
+  const supabase = createSupabaseAdminClient();
+
+  const body = (await req.json()) as { id?: unknown };
+
+  const idNum =
+    typeof body.id === 'number'
+      ? body.id
+      : typeof body.id === 'string'
+        ? Number(body.id)
+        : NaN;
+
+  if (!Number.isFinite(idNum)) {
+    return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  }
 
   const { error } = await supabase
     .from('newsletter_subscribers')
     .delete()
-    .eq('id', id)
+    .eq('id', idNum);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true });
 }
