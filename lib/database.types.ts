@@ -219,6 +219,31 @@ export type Database = {
         Relationships: [];
       };
 
+      user_preferences: {
+        Row: {
+          user_id: string;
+          created_at: string;
+          favorite_event_type: string | null;
+          favorite_neighborhood: string | null;
+          favorite_vibes: string[] | null;
+        };
+        Insert: {
+          user_id: string;
+          created_at?: string;
+          favorite_event_type?: string | null;
+          favorite_neighborhood?: string | null;
+          favorite_vibes?: string[] | null;
+        };
+        Update: Partial<{
+          user_id: string;
+          created_at: string;
+          favorite_event_type: string | null;
+          favorite_neighborhood: string | null;
+          favorite_vibes: string[] | null;
+        }>;
+        Relationships: [];
+      };
+
       newsletter_subscribers: {
         Row: {
           id: number;

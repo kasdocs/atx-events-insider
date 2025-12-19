@@ -2,6 +2,7 @@ import Navbar from '@/app/components/Navbar';
 import EventCard from '@/app/components/EventCard';
 import Sidebar from './components/Sidebar';
 import FeaturedStoryHero from '@/app/components/FeaturedStoryHero';
+import FYPSection from '@/app/components/FYPSection';
 import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 import type { Database } from '@/lib/database.types';
 
@@ -49,8 +50,7 @@ export default async function Home() {
 
   const freeEvents = events.filter((event) => {
     const eventDate = event.event_date ?? '';
-    const isFreeOrRSVP =
-      event.pricing_type === 'Free' || event.pricing_type === 'Free with RSVP';
+    const isFreeOrRSVP = event.pricing_type === 'Free' || event.pricing_type === 'Free with RSVP';
     const isWeekend = eventDate >= weekend.friday && eventDate <= weekend.sunday;
     return isFreeOrRSVP && isWeekend;
   });
@@ -75,6 +75,9 @@ export default async function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Main Content - 70% */}
           <div className="lg:col-span-8">
+            {/* For You Section */}
+            <FYPSection events={events} />
+
             {/* Free This Weekend Section */}
             <h2 className="text-3xl font-bold mb-8" style={{ color: '#FF006E' }}>
               🎟️ Free This Weekend

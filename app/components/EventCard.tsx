@@ -13,7 +13,10 @@ export default function EventCard({ event }: { event: EventRow }) {
   const getPricingTag = () => {
     if (event.pricing_type === 'Free') {
       return (
-        <span className="px-3 py-1 text-sm font-semibold rounded-full text-white" style={{ backgroundColor: '#06D6A0' }}>
+        <span
+          className="px-3 py-1 text-sm font-semibold rounded-full text-white"
+          style={{ backgroundColor: '#06D6A0' }}
+        >
           🎟️ FREE
         </span>
       );
@@ -21,14 +24,20 @@ export default function EventCard({ event }: { event: EventRow }) {
 
     if (event.pricing_type === 'Free with RSVP') {
       return (
-        <span className="px-3 py-1 text-sm font-semibold rounded-full text-white" style={{ backgroundColor: '#06D6A0' }}>
+        <span
+          className="px-3 py-1 text-sm font-semibold rounded-full text-white"
+          style={{ backgroundColor: '#06D6A0' }}
+        >
           🎟️ FREE (RSVP)
         </span>
       );
     }
 
     return (
-      <span className="px-3 py-1 text-sm font-semibold rounded-full text-white" style={{ backgroundColor: '#FF8500' }}>
+      <span
+        className="px-3 py-1 text-sm font-semibold rounded-full text-white"
+        style={{ backgroundColor: '#FF8500' }}
+      >
         💵 PAID
       </span>
     );
@@ -46,12 +55,22 @@ export default function EventCard({ event }: { event: EventRow }) {
 
   const formatVibe = (v: string) => titleCase(v);
 
+  const locationLine = () => {
+    const loc = (event.location ?? '').trim();
+    const hood = (event.neighborhood ?? '').trim();
+
+    if (loc && hood) return `📍 ${loc}, ${hood}`;
+    if (loc) return `📍 ${loc}`;
+    if (hood) return `📍 ${hood}`;
+    return '📍 Location TBD';
+  };
+
   return (
     <Link href={`/events/${event.slug}`}>
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer">
         <div className="p-4">
           <h3 className="font-bold text-lg mb-1">{event.title}</h3>
-          <p className="text-gray-600 text-sm">📍 {event.location}</p>
+          <p className="text-gray-600 text-sm">{locationLine()}</p>
         </div>
 
         <div className="aspect-square bg-gray-200 relative">
@@ -79,7 +98,10 @@ export default function EventCard({ event }: { event: EventRow }) {
             📅 {event.event_date ? formatDate(event.event_date) : 'TBD'} {event.time ? `• 🕐 ${event.time}` : ''}
           </p>
 
-          <span className="px-4 py-2 text-sm font-semibold rounded-lg text-white hover:opacity-90 transition-opacity whitespace-nowrap" style={{ backgroundColor: '#7B2CBF' }}>
+          <span
+            className="px-4 py-2 text-sm font-semibold rounded-lg text-white hover:opacity-90 transition-opacity whitespace-nowrap"
+            style={{ backgroundColor: '#7B2CBF' }}
+          >
             View Details →
           </span>
         </div>
