@@ -8,14 +8,42 @@ import type { Database } from '@/lib/database.types';
 
 type StoryRow = Database['public']['Tables']['stories']['Row'];
 
+function toISODate(d: Date) {
+  return d.toISOString().split('T')[0];
+}
+
+function fmtShort(d: Date) {
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function getNextWeekendRange() {
+  const now = new Date();
+  const currentDay = now.getDay();
+
+  const daysUntilFriday = currentDay <= 5 ? 5 - currentDay : 5 + (7 - currentDay);
+
+  const fri = new Date(now);
+  fri.setDate(now.getDate() + daysUntilFriday);
+  fri.setHours(0, 0, 0, 0);
+
+  const sun = new Date(fri);
+  sun.setDate(fri.getDate() + 2);
+  sun.setHours(23, 59, 59, 999);
+
+  return { fri, sun };
+}
+
 export default function Sidebar() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [recentStories, setRecentStories] = useState<StoryRow[]>([]);
+  const [storiesLoading, setStoriesLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
     const fetchRecentStories = async () => {
+      setStoriesLoading(true);
+
       const { data, error } = await supabase
         .from('stories')
         .select(
@@ -30,10 +58,12 @@ export default function Sidebar() {
       if (error) {
         console.error('Error fetching stories:', error);
         setRecentStories([]);
+        setStoriesLoading(false);
         return;
       }
 
       setRecentStories(data ?? []);
+      setStoriesLoading(false);
     };
 
     fetchRecentStories();
@@ -53,6 +83,14 @@ export default function Sidebar() {
     });
   };
 
+  const today = new Date();
+  const tomorrow = new Date(Date.now() + 86400000);
+  const weekend = getNextWeekendRange();
+  const nextWeekStart = new Date();
+  nextWeekStart.setDate(today.getDate() + 1);
+  const nextWeekEnd = new Date();
+  nextWeekEnd.setDate(today.getDate() + 7);
+
   return (
     <div className="space-y-8">
       {/* Recent Stories */}
@@ -61,7 +99,24 @@ export default function Sidebar() {
           📖 Recent Stories
         </h3>
 
-        {recentStories.length > 0 ? (
+        {storiesLoading ? (
+          <div className="space-y-4">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="bg-white border border-gray-200 rounded-lg overflow-hidden"
+              >
+                <div className="w-full h-32 bg-gray-200 animate-pulse" />
+                <div className="p-3 space-y-2">
+                  <div className="h-3 w-24 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-4 w-full bg-gray-200 rounded animate-pulse" />
+                  <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-3 w-20 bg-gray-200 rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : recentStories.length > 0 ? (
           <div className="space-y-4">
             {recentStories.map((story) => {
               const href = story.slug ? `/stories/${story.slug}` : '/stories';
@@ -99,9 +154,7 @@ export default function Sidebar() {
                       {story.title ?? 'Untitled'}
                     </h4>
 
-                    <p className="text-xs text-gray-500">
-                      {formatDate(story.published_date)}
-                    </p>
+                    <p className="text-xs text-gray-500">{formatDate(story.published_date)}</p>
                   </div>
                 </Link>
               );
@@ -130,41 +183,41 @@ export default function Sidebar() {
         </h3>
 
         <div className="space-y-3">
-          <a
-            href={`/browse?date=${new Date().toISOString().split('T')[0]}`}
+          <Link
+            href={`/browse?date=${toISODate(today)}`}
             className="block w-full text-left px-4 py-3 bg-white rounded-lg hover:bg-purple-50 transition-colors border border-gray-200"
           >
             <div className="font-semibold text-sm">Today</div>
-            <div className="text-xs text-gray-500">
-              {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </div>
-          </a>
+            <div className="text-xs text-gray-500">{fmtShort(today)}</div>
+          </Link>
 
-          <a
-            href={`/browse?date=${new Date(Date.now() + 86400000).toISOString().split('T')[0]}`}
+          <Link
+            href={`/browse?date=${toISODate(tomorrow)}`}
             className="block w-full text-left px-4 py-3 bg-white rounded-lg hover:bg-purple-50 transition-colors border border-gray-200"
           >
             <div className="font-semibold text-sm">Tomorrow</div>
-            <div className="text-xs text-gray-500">
-              {new Date(Date.now() + 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </div>
-          </a>
+            <div className="text-xs text-gray-500">{fmtShort(tomorrow)}</div>
+          </Link>
 
-          <a
+          <Link
             href={`/browse?weekend=true`}
             className="block w-full text-left px-4 py-3 bg-white rounded-lg hover:bg-purple-50 transition-colors border border-gray-200"
           >
             <div className="font-semibold text-sm">This Weekend</div>
-            <div className="text-xs text-gray-500">Sat-Sun</div>
-          </a>
+            <div className="text-xs text-gray-500">
+              {fmtShort(weekend.fri)} to {fmtShort(weekend.sun)}
+            </div>
+          </Link>
 
-          <a
+          <Link
             href={`/browse?nextweek=true`}
             className="block w-full text-left px-4 py-3 bg-white rounded-lg hover:bg-purple-50 transition-colors border border-gray-200"
           >
-            <div className="font-semibold text-sm">Next Week</div>
-            <div className="text-xs text-gray-500">Next 7 Days</div>
-          </a>
+            <div className="font-semibold text-sm">Next 7 Days</div>
+            <div className="text-xs text-gray-500">
+              {fmtShort(nextWeekStart)} to {fmtShort(nextWeekEnd)}
+            </div>
+          </Link>
         </div>
 
         <div className="mt-4 pt-4 border-t border-gray-200">
@@ -181,6 +234,13 @@ export default function Sidebar() {
             }}
           />
         </div>
+
+        <Link
+          href="/browse"
+          className="block mt-4 text-sm font-semibold text-center py-2 rounded-lg border border-gray-200 hover:bg-white transition-colors"
+        >
+          Browse all events →
+        </Link>
       </div>
 
       {/* Newsletter Signup */}
@@ -191,17 +251,15 @@ export default function Sidebar() {
         <h3 className="font-bold text-lg mb-2" style={{ color: '#7B2CBF' }}>
           🎉 Have an Event?
         </h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Share your Austin event with our community!
-        </p>
+        <p className="text-sm text-gray-600 mb-4">Share your Austin event with our community!</p>
 
-        <a
+        <Link
           href="/submit-event"
           className="block w-full px-4 py-3 text-center text-white font-semibold rounded-lg hover:opacity-90 transition-opacity"
           style={{ backgroundColor: '#FF006E' }}
         >
           Submit Your Event →
-        </a>
+        </Link>
       </div>
     </div>
   );

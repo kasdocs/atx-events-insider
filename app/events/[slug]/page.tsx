@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
 import EventCard from '@/app/components/EventCard';
-import SaveEventButton from '@/app/components/SaveEventButton';
+import SaveToggleButton from '@/app/components/SaveToggleButton';
 import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 import type { Database } from '@/lib/database.types';
 
@@ -67,7 +67,8 @@ export default async function EventDetailPage({
   };
 
   const getPricingColor = () => {
-    if (event.pricing_type === 'Free' || event.pricing_type === 'Free with RSVP') return '#06D6A0';
+    if (event.pricing_type === 'Free' || event.pricing_type === 'Free with RSVP')
+      return '#06D6A0';
     return '#FF8500';
   };
 
@@ -90,10 +91,20 @@ export default async function EventDetailPage({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* 1) Main content */}
           <div className="order-1 lg:order-1 lg:col-span-8">
-            <h1 className="text-4xl font-bold mb-2" style={{ color: '#7B2CBF' }}>
-              {event.title ?? 'Untitled Event'}
-            </h1>
-            <p className="text-xl text-gray-600 mb-6">📍 {event.location ?? 'Location TBD'}</p>
+            {/* Title + Location + Save button row */}
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div className="min-w-0">
+                <h1 className="text-4xl font-bold mb-2" style={{ color: '#7B2CBF' }}>
+                  {event.title ?? 'Untitled Event'}
+                </h1>
+                <p className="text-xl text-gray-600">📍 {event.location ?? 'Location TBD'}</p>
+              </div>
+
+              {/* Save button styled like EventCard */}
+              <div className="shrink-0 pt-1">
+                <SaveToggleButton eventId={event.id} />
+              </div>
+            </div>
 
             <div className="mb-8">
               <img
@@ -206,8 +217,6 @@ export default async function EventDetailPage({
                       📲 View on Instagram
                     </a>
                   )}
-
-                  <SaveEventButton eventId={event.id} />
                 </div>
               </div>
 
@@ -227,7 +236,7 @@ export default async function EventDetailPage({
             </div>
           </div>
 
-          {/* 3) Similar events (single render) */}
+          {/* 3) Similar events */}
           {similarEvents.length > 0 && (
             <div className="order-3 lg:order-3 lg:col-span-8 lg:col-start-1">
               <h2 className="text-2xl font-bold mb-6" style={{ color: '#7B2CBF' }}>
