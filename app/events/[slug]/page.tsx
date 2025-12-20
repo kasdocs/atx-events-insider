@@ -88,7 +88,8 @@ export default async function EventDetailPage({
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-8">
+          {/* 1) Main content */}
+          <div className="order-1 lg:order-1 lg:col-span-8">
             <h1 className="text-4xl font-bold mb-2" style={{ color: '#7B2CBF' }}>
               {event.title ?? 'Untitled Event'}
             </h1>
@@ -122,23 +123,11 @@ export default async function EventDetailPage({
                 <div className="text-sm text-gray-600">{event.insider_tip}</div>
               </div>
             )}
-
-            {similarEvents.length > 0 && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6" style={{ color: '#7B2CBF' }}>
-                  Similar Events
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {similarEvents.map((similarEvent) => (
-                    <EventCard key={similarEvent.id} event={similarEvent} />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
-          <div className="lg:col-span-4">
-            <div className="sticky top-24 space-y-6">
+          {/* 2) Sidebar details */}
+          <div className="order-2 lg:order-2 lg:col-span-4">
+            <div className="lg:sticky lg:top-24 space-y-6">
               <div className="bg-white border-2 border-purple-200 rounded-xl p-6">
                 <h3 className="text-xl font-bold mb-4" style={{ color: '#7B2CBF' }}>
                   Event Details
@@ -238,6 +227,19 @@ export default async function EventDetailPage({
             </div>
           </div>
 
+          {/* 3) Similar events (single render) */}
+          {similarEvents.length > 0 && (
+            <div className="order-3 lg:order-3 lg:col-span-8 lg:col-start-1">
+              <h2 className="text-2xl font-bold mb-6" style={{ color: '#7B2CBF' }}>
+                Similar Events
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {similarEvents.map((similarEvent) => (
+                  <EventCard key={similarEvent.id} event={similarEvent} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
