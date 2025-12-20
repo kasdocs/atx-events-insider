@@ -24,6 +24,26 @@ export default function BrowseContent() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedCost, setSelectedCost] = useState<CostFilter>('all');
 
+  // Mobile filter collapse state
+  const [isMobile, setIsMobile] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
+
+  // Detect mobile and set default collapse behavior:
+  // - mobile: start collapsed
+  // - md+: always open
+  useEffect(() => {
+    const update = () => {
+      const mobile = window.innerWidth < 768; // Tailwind md breakpoint
+      setIsMobile(mobile);
+      setFiltersOpen(!mobile);
+    };
+
+    update();
+    window.addEventListener('resize', update);
+
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
   // Pull initial filters from URL (?date=, etc.)
   useEffect(() => {
     const date = searchParams.get('date') ?? '';
@@ -82,7 +102,8 @@ export default function BrowseContent() {
       const pricing = e.pricing_type ?? '';
       if (selectedCost === 'free' && pricing !== 'Free') return false;
       if (selectedCost === 'free_rsvp' && pricing !== 'Free with RSVP') return false;
-      if (selectedCost === 'paid' && (pricing === 'Free' || pricing === 'Free with RSVP')) return false;
+      if (selectedCost === 'paid' && (pricing === 'Free' || pricing === 'Free with RSVP'))
+        return false;
     }
 
     return true;
@@ -108,6 +129,22 @@ export default function BrowseContent() {
     });
   };
   // -------------------------------
+
+  const activeFilterCount = () => {
+    let count = 0;
+    if (selectedDate) count += 1;
+    if (selectedNeighborhood !== 'all') count += 1;
+    if (selectedType !== 'all') count += 1;
+    if (selectedCost !== 'all') count += 1;
+    return count;
+  };
+
+  const clearFilters = () => {
+    setSelectedDate('');
+    setSelectedNeighborhood('all');
+    setSelectedType('all');
+    setSelectedCost('all');
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -145,75 +182,122 @@ export default function BrowseContent() {
       {/* Filters Row */}
       <div className="border-b border-gray-200 mt-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Date */}
-            <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
-                📅 Date
-              </label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
+          {/* Mobile controls */}
+          <div className="flex items-center justify-between gap-3 mb-4 md:hidden">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              className="px-4 py-2 rounded-xl border border-gray-200 font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+            >
+              {filtersOpen ? 'Hide filters' : 'Show filters'}
+              {activeFilterCount() > 0 ? ` (${activeFilterCount()})` : ''}
+            </button>
+
+            {activeFilterCount() > 0 ? (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="px-4 py-2 rounded-xl border border-gray-200 font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+
+          {/* On desktop (md+): always visible. On mobile: collapsible */}
+          <div className={`${filtersOpen ? 'block' : 'hidden'} md:block`}>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Date */}
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
+                  📅 Date
+                </label>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              {/* Neighborhood */}
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
+                  📍 Neighborhood
+                </label>
+                <select
+                  value={selectedNeighborhood}
+                  onChange={(e) => setSelectedNeighborhood(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="all">All Neighborhoods</option>
+                  {neighborhoods.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Event Type */}
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
+                  🎭 Event Type
+                </label>
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="all">All Types</option>
+                  {eventTypes.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Cost */}
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
+                  💸 Cost
+                </label>
+                <select
+                  value={selectedCost}
+                  onChange={(e) => setSelectedCost(e.target.value as CostFilter)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="all">All Events</option>
+                  <option value="free">Free</option>
+                  <option value="free_rsvp">Free with RSVP</option>
+                  <option value="paid">Paid</option>
+                </select>
+              </div>
             </div>
 
-            {/* Neighborhood */}
-            <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
-                📍 Neighborhood
-              </label>
-              <select
-                value={selectedNeighborhood}
-                onChange={(e) => setSelectedNeighborhood(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="all">All Neighborhoods</option>
-                {neighborhoods.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Event Type */}
-            <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
-                🎭 Event Type
-              </label>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="all">All Types</option>
-                {eventTypes.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Cost */}
-            <div>
-              <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
-                💸 Cost
-              </label>
-              <select
-                value={selectedCost}
-                onChange={(e) => setSelectedCost(e.target.value as CostFilter)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="all">All Events</option>
-                <option value="free">Free</option>
-                <option value="free_rsvp">Free with RSVP</option>
-                <option value="paid">Paid</option>
-              </select>
+            {/* Desktop clear row */}
+            <div className="hidden md:flex justify-end mt-4">
+              {activeFilterCount() > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="px-4 py-2 rounded-xl border border-gray-200 font-semibold text-gray-800 hover:bg-gray-50 transition-colors"
+                >
+                  Clear filters ({activeFilterCount()})
+                </button>
+              ) : null}
             </div>
           </div>
+
+          {/* Mobile collapsed summary */}
+          {!filtersOpen && isMobile ? (
+            <div className="md:hidden text-sm text-gray-600">
+              {activeFilterCount() > 0
+                ? `Filters applied: ${activeFilterCount()}`
+                : 'No filters applied'}
+            </div>
+          ) : null}
         </div>
       </div>
 
