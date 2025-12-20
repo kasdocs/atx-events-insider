@@ -164,6 +164,9 @@ export default function SavedEventsPage() {
   const [favoriteNeighborhood, setFavoriteNeighborhood] = useState<string>('');
   const [favoriteVibes, setFavoriteVibes] = useState<string[]>([]);
 
+  // NEW: Favorites section starts collapsed
+  const [favoritesOpen, setFavoritesOpen] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -276,9 +279,12 @@ export default function SavedEventsPage() {
       return;
     }
 
-    setPrefsMsg('Preferences saved.');
+    setPrefsMsg('Preferences saved. Your For You feed will update on the homepage.');
     setPrefsSaving(false);
   };
+
+  const favoritesSelectedCount =
+    (favoriteEventType ? 1 : 0) + (favoriteNeighborhood ? 1 : 0) + favoriteVibes.length;
 
   return (
     <div className="min-h-screen bg-white">
@@ -289,139 +295,200 @@ export default function SavedEventsPage() {
           Saved Events
         </h1>
 
-        {/* Favorites */}
+        {/* Favorites (collapsible) */}
         <div className="border border-gray-200 rounded-xl p-5 mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-            <h2 className="text-xl font-bold" style={{ color: '#7B2CBF' }}>
-              Your Favorites
-            </h2>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold" style={{ color: '#7B2CBF' }}>
+                Your Favorites
+              </h2>
+              <div className="text-sm text-gray-600 mt-1">
+                Save your favorites to build your <span className="font-semibold">For You</span>{' '}
+                feed on the homepage.
+              </div>
+            </div>
 
-            <button
-              onClick={savePreferences}
-              disabled={prefsLoading || prefsSaving || !userId}
-              className="px-4 py-2 rounded-lg font-semibold text-white disabled:opacity-50"
-              style={{ backgroundColor: '#7B2CBF' }}
-            >
-              {prefsSaving ? 'Saving...' : 'Save Preferences'}
-            </button>
+            <div className="flex items-center gap-3">
+             <button
+  type="button"
+  onClick={() => setFavoritesOpen((v) => !v)}
+  className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors"
+  aria-expanded={favoritesOpen}
+  aria-controls="favorites-panel"
+>
+  <span>
+    {favoritesOpen ? 'Hide favorites' : 'Set favorites'}
+    {favoritesSelectedCount > 0 ? ` (${favoritesSelectedCount})` : ''}
+  </span>
+
+  {/* Chevron */}
+  <svg
+    className={`w-4 h-4 transition-transform duration-200 ${
+      favoritesOpen ? 'rotate-180' : 'rotate-0'
+    }`}
+    viewBox="0 0 20 20"
+    fill="currentColor"
+    aria-hidden="true"
+  >
+    <path
+      fillRule="evenodd"
+      d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+      clipRule="evenodd"
+    />
+  </svg>
+</button>
+
+
+              <button
+                onClick={savePreferences}
+                disabled={prefsLoading || prefsSaving || !userId}
+                className="px-4 py-2 rounded-lg font-semibold text-white disabled:opacity-50"
+                style={{ backgroundColor: '#7B2CBF' }}
+              >
+                {prefsSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
           </div>
 
-          {prefsLoading ? (
-            <div className="text-gray-600">Loading preferences...</div>
-          ) : (
-            <>
-              {prefsMsg ? <div className="text-sm text-gray-700 mb-4">{prefsMsg}</div> : null}
+          {/* Optional collapsed summary */}
+          {!favoritesOpen && !prefsLoading ? (
+            <div className="mt-4 text-sm text-gray-700">
+              {favoritesSelectedCount === 0 ? (
+                <span>No favorites selected yet.</span>
+              ) : (
+                <span>
+                  Current favorites:{' '}
+                  <span className="font-semibold">
+                    {favoriteEventType ? `Type: ${favoriteEventType}` : ''}
+                    {favoriteEventType && (favoriteNeighborhood || favoriteVibes.length) ? ' • ' : ''}
+                    {favoriteNeighborhood ? `Neighborhood: ${favoriteNeighborhood}` : ''}
+                    {favoriteNeighborhood && favoriteVibes.length ? ' • ' : ''}
+                    {favoriteVibes.length ? `Vibes: ${favoriteVibes.length}` : ''}
+                  </span>
+                </span>
+              )}
+            </div>
+          ) : null}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Favorite Event Type */}
-                <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
-                    🎭 Favorite Event Type
-                  </label>
-                  <select
-                    value={favoriteEventType}
-                    onChange={(e) => {
-                      setPrefsMsg(null);
-                      setFavoriteEventType(e.target.value);
-                    }}
-                    className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                  >
-                    <option value="">No favorite selected</option>
-                    {EVENT_TYPE_OPTIONS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Favorite Neighborhood */}
-                <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
-                    📍 Favorite Neighborhood
-                  </label>
-                  <select
-                    value={favoriteNeighborhood}
-                    onChange={(e) => {
-                      setPrefsMsg(null);
-                      setFavoriteNeighborhood(e.target.value);
-                    }}
-                    className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                  >
-                    <option value="">No favorite selected</option>
-                    {NEIGHBORHOOD_OPTIONS.map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Favorite Vibes */}
-              <div className="mt-5">
-                <div className="flex items-center justify-between gap-3 mb-2">
-                  <label className="block text-sm font-semibold" style={{ color: '#7B2CBF' }}>
-                    ✨ Favorite Vibes (pick up to 3)
-                  </label>
-                  <div className="text-xs text-gray-600">Selected: {favoriteVibes.length}/3</div>
-                </div>
-
-                {/* Selected summary */}
-                {favoriteVibes.length ? (
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {favoriteVibes.map((v) => (
-                      <span
-                        key={v}
-                        className="px-3 py-1.5 rounded-full text-sm border border-purple-200 bg-purple-50 text-purple-800"
-                      >
-                        {VIBE_LABEL_BY_VALUE[v] ?? formatInternalLabel(v)}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
+          {/* Panel */}
+          <div id="favorites-panel" className={favoritesOpen ? 'mt-5' : 'hidden'}>
+            {prefsLoading ? (
+              <div className="text-gray-600">Loading preferences...</div>
+            ) : (
+              <>
+                {prefsMsg ? <div className="text-sm text-gray-700 mb-4">{prefsMsg}</div> : null}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {VIBE_GROUPS.map((group) => (
-                    <div key={group.category} className="border border-gray-200 rounded-xl p-4">
-                      <div className="font-semibold mb-3" style={{ color: '#7B2CBF' }}>
-                        {group.category}
-                      </div>
+                  {/* Favorite Event Type */}
+                  <div>
+                    <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
+                      🎭 Favorite Event Type
+                    </label>
+                    <select
+                      value={favoriteEventType}
+                      onChange={(e) => {
+                        setPrefsMsg(null);
+                        setFavoriteEventType(e.target.value);
+                      }}
+                      className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                    >
+                      <option value="">No favorite selected</option>
+                      {EVENT_TYPE_OPTIONS.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        {group.vibes.map((v) => {
-                          const selected = favoriteVibes.includes(v.value);
-                          const disabled = !selected && favoriteVibes.length >= 3;
-
-                          return (
-                            <button
-                              key={v.value}
-                              type="button"
-                              onClick={() => toggleVibe(v.value)}
-                              disabled={disabled}
-                              className={`px-3 py-1.5 rounded-full text-sm border transition-opacity ${
-                                selected
-                                  ? 'border-purple-400 bg-purple-50 text-purple-800'
-                                  : 'border-gray-200 bg-white text-gray-700'
-                              } ${disabled ? 'opacity-50' : ''}`}
-                            >
-                              {v.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                  {/* Favorite Neighborhood */}
+                  <div>
+                    <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
+                      📍 Favorite Neighborhood
+                    </label>
+                    <select
+                      value={favoriteNeighborhood}
+                      onChange={(e) => {
+                        setPrefsMsg(null);
+                        setFavoriteNeighborhood(e.target.value);
+                      }}
+                      className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                    >
+                      <option value="">No favorite selected</option>
+                      {NEIGHBORHOOD_OPTIONS.map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                {favoriteVibes.length >= 3 ? (
-                  <div className="text-xs text-gray-600 mt-3">
-                    Max selected. Unselect one to choose a different vibe.
+                {/* Favorite Vibes */}
+                <div className="mt-5">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <label className="block text-sm font-semibold" style={{ color: '#7B2CBF' }}>
+                      ✨ Favorite Vibes (pick up to 3)
+                    </label>
+                    <div className="text-xs text-gray-600">Selected: {favoriteVibes.length}/3</div>
                   </div>
-                ) : null}
-              </div>
-            </>
-          )}
+
+                  {/* Selected summary */}
+                  {favoriteVibes.length ? (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {favoriteVibes.map((v) => (
+                        <span
+                          key={v}
+                          className="px-3 py-1.5 rounded-full text-sm border border-purple-200 bg-purple-50 text-purple-800"
+                        >
+                          {VIBE_LABEL_BY_VALUE[v] ?? formatInternalLabel(v)}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {VIBE_GROUPS.map((group) => (
+                      <div key={group.category} className="border border-gray-200 rounded-xl p-4">
+                        <div className="font-semibold mb-3" style={{ color: '#7B2CBF' }}>
+                          {group.category}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {group.vibes.map((v) => {
+                            const selected = favoriteVibes.includes(v.value);
+                            const disabled = !selected && favoriteVibes.length >= 3;
+
+                            return (
+                              <button
+                                key={v.value}
+                                type="button"
+                                onClick={() => toggleVibe(v.value)}
+                                disabled={disabled}
+                                className={`px-3 py-1.5 rounded-full text-sm border transition-opacity ${
+                                  selected
+                                    ? 'border-purple-400 bg-purple-50 text-purple-800'
+                                    : 'border-gray-200 bg-white text-gray-700'
+                                } ${disabled ? 'opacity-50' : ''}`}
+                              >
+                                {v.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {favoriteVibes.length >= 3 ? (
+                    <div className="text-xs text-gray-600 mt-3">
+                      Max selected. Unselect one to choose a different vibe.
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Saved Events list */}

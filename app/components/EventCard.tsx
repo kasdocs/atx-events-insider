@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Database } from '@/lib/database.types';
+import SaveToggleButton from '@/app/components/SaveToggleButton';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
 
@@ -68,14 +69,28 @@ export default function EventCard({ event }: { event: EventRow }) {
   return (
     <Link href={`/events/${event.slug}`}>
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer">
-        <div className="p-4">
-          <h3 className="font-bold text-lg mb-1">{event.title}</h3>
-          <p className="text-gray-600 text-sm">{locationLine()}</p>
+        {/* Header row: title/location left, save button right */}
+        <div className="p-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="font-bold text-lg mb-1 truncate">{event.title}</h3>
+            <p className="text-gray-600 text-sm truncate">{locationLine()}</p>
+          </div>
+
+          {/* Save/Unsave button */}
+          {typeof event.id === 'number' ? (
+            <div className="shrink-0">
+              <SaveToggleButton eventId={event.id} />
+            </div>
+          ) : null}
         </div>
 
-        <div className="aspect-square bg-gray-200 relative">
+        {/* Flyer image */}
+        <div className="aspect-square bg-gray-200">
           <img
-            src={event.image_url || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800'}
+            src={
+              event.image_url ||
+              'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800'
+            }
             alt={event.title ?? 'Event image'}
             className="w-full h-full object-cover"
           />
@@ -95,7 +110,8 @@ export default function EventCard({ event }: { event: EventRow }) {
 
         <div className="px-4 pb-4 flex items-center justify-between gap-3">
           <p className="text-sm text-gray-600">
-            📅 {event.event_date ? formatDate(event.event_date) : 'TBD'} {event.time ? `• 🕐 ${event.time}` : ''}
+            📅 {event.event_date ? formatDate(event.event_date) : 'TBD'}{' '}
+            {event.time ? `• 🕐 ${event.time}` : ''}
           </p>
 
           <span
