@@ -73,10 +73,11 @@ export default function FYPSection({ events }: { events: EventRow[] }) {
       setLoading(true);
       setShowCTA(false);
 
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr) console.error('FYP getUser error:', userErr);
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+if (sessionErr) console.error('FYP getSession error:', sessionErr);
 
-      const user = userData.user;
+const user = sessionData.session?.user ?? null;
+
       if (!user) {
         if (!cancelled) {
           setFypEvents([]);

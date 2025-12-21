@@ -175,10 +175,11 @@ export default function SavedEventsPage() {
       setPrefsLoading(true);
       setPrefsMsg(null);
 
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr) console.error('getUser error:', userErr);
+const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+if (sessionErr) console.error('getSession error:', sessionErr);
 
-      const user = userData.user;
+const user = sessionData.session?.user ?? null;
+
 
       if (!user) {
         router.push('/login?returnTo=/saved');
