@@ -55,6 +55,22 @@ export default function Navbar() {
     router.push(`/login?returnTo=${encodeURIComponent(pathname)}`);
   };
 
+  const isActive = (href: string) => {
+    if (!pathname) return false;
+    if (href === '/') return pathname === '/';
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
+  const linkClass = (href: string) =>
+    `transition-colors ${
+      isActive(href) ? 'text-purple-700' : 'text-gray-700 hover:text-purple-700'
+    }`;
+
+  const mobileLinkClass = (href: string) =>
+    `block px-3 py-2 rounded-lg transition-colors ${
+      isActive(href) ? 'bg-purple-50 text-purple-700' : 'hover:bg-gray-50 text-gray-700'
+    }`;
+
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -67,17 +83,20 @@ export default function Navbar() {
 
         {/* Center: Desktop Nav */}
         <nav className="hidden md:flex items-center gap-8 text-sm font-semibold">
-          <Link href="/browse" className="text-gray-700 hover:text-purple-700">
+          <Link href="/browse" className={linkClass('/browse')}>
             Browse Events
           </Link>
-          <Link href="/stories" className="text-gray-700 hover:text-purple-700">
+          <Link href="/stories" className={linkClass('/stories')}>
             Stories
           </Link>
-          <Link href="/about" className="text-gray-700 hover:text-purple-700">
+          <Link href="/for-organizers" className={linkClass('/for-organizers')}>
+            For Organizers
+          </Link>
+          <Link href="/about" className={linkClass('/about')}>
             About
           </Link>
           {user && (
-            <Link href="/saved" className="text-gray-700 hover:text-purple-700">
+            <Link href="/saved" className={linkClass('/saved')}>
               Saved
             </Link>
           )}
@@ -164,18 +183,21 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="md:hidden border-t border-gray-200 bg-white">
           <div className="max-w-7xl mx-auto px-4 py-3 space-y-2 text-sm font-semibold">
-            <Link href="/browse" className="block px-3 py-2 rounded-lg hover:bg-gray-50 text-gray-700">
+            <Link href="/browse" className={mobileLinkClass('/browse')}>
               Browse Events
             </Link>
-            <Link href="/stories" className="block px-3 py-2 rounded-lg hover:bg-gray-50 text-gray-700">
+            <Link href="/stories" className={mobileLinkClass('/stories')}>
               Stories
             </Link>
-            <Link href="/about" className="block px-3 py-2 rounded-lg hover:bg-gray-50 text-gray-700">
+            <Link href="/for-organizers" className={mobileLinkClass('/for-organizers')}>
+              For Organizers
+            </Link>
+            <Link href="/about" className={mobileLinkClass('/about')}>
               About
             </Link>
 
             {user && (
-              <Link href="/saved" className="block px-3 py-2 rounded-lg hover:bg-gray-50 text-gray-700">
+              <Link href="/saved" className={mobileLinkClass('/saved')}>
                 Saved
               </Link>
             )}

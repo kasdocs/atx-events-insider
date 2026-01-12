@@ -64,7 +64,7 @@ export default function SubmitEvent() {
     'Domain',
     'Mueller',
     'Zilker',
-    'Other'
+    'Other',
   ];
 
   const pricingTypes = ['Free', 'Free with RSVP', 'Ticketed'];
@@ -147,6 +147,34 @@ export default function SubmitEvent() {
               </a>
             </div>
           </div>
+
+          {/* Optional promo after success */}
+          <div className="mt-8 text-left">
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6">
+              <div className="text-lg font-bold mb-1" style={{ color: '#7B2CBF' }}>
+                Want more visibility?
+              </div>
+              <p className="text-sm text-gray-700">
+                If you’re promoting something time-sensitive, check out organizer options like featured placement.
+              </p>
+
+              <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                <a
+                  href="/for-organizers"
+                  className="px-5 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity text-center"
+                  style={{ backgroundColor: '#FF006E' }}
+                >
+                  For Organizers →
+                </a>
+                <a
+                  href="/for-organizers#inquiry"
+                  className="px-5 py-3 rounded-xl border border-gray-300 bg-white text-gray-900 font-semibold hover:bg-gray-50 transition-colors text-center"
+                >
+                  Request the organizer guide
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -162,7 +190,8 @@ export default function SubmitEvent() {
             Submit Your Event
           </h1>
           <p className="text-lg text-gray-600 text-center mb-8">
-            Get your Austin event featured on ATX Events Insider! Fill out the form below and we will review your submission.
+            Get your Austin event featured on ATX Events Insider! Fill out the form below and we will
+            review your submission.
           </p>
         </div>
       </div>
@@ -171,9 +200,7 @@ export default function SubmitEvent() {
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg border p-8">
           {/* Honeypot field: hidden from humans, visible to many bots */}
           <div className="hidden" aria-hidden="true">
-            <label className="block text-sm font-semibold mb-2 text-gray-700">
-              Website
-            </label>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">Website</label>
             <input
               type="text"
               value={formData.website}
@@ -183,7 +210,9 @@ export default function SubmitEvent() {
             />
           </div>
 
-          <h2 className="text-2xl font-bold mb-6" style={{ color: '#FF006E' }}>Event Information</h2>
+          <h2 className="text-2xl font-bold mb-6" style={{ color: '#FF006E' }}>
+            Event Information
+          </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div className="md:col-span-2">
@@ -239,8 +268,10 @@ export default function SubmitEvent() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               >
                 <option value="">Select neighborhood</option>
-                {neighborhoods.map(n => (
-                  <option key={n} value={n}>{n}</option>
+                {neighborhoods.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
                 ))}
               </select>
             </div>
@@ -253,36 +284,46 @@ export default function SubmitEvent() {
                 onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               >
-                {eventTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
+                {eventTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Additional Category 1</label>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">
+                Additional Category 1
+              </label>
               <select
                 value={formData.subtype_1}
                 onChange={(e) => setFormData({ ...formData, subtype_1: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               >
                 <option value="">None</option>
-                {eventTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
+                {eventTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold mb-2 text-gray-700">Additional Category 2</label>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">
+                Additional Category 2
+              </label>
               <select
                 value={formData.subtype_2}
                 onChange={(e) => setFormData({ ...formData, subtype_2: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               >
                 <option value="">None</option>
-                {eventTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
+                {eventTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
                 ))}
               </select>
             </div>
@@ -295,8 +336,10 @@ export default function SubmitEvent() {
                 onChange={(e) => setFormData({ ...formData, pricing_type: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               >
-                {pricingTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
+                {pricingTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
                 ))}
               </select>
             </div>
@@ -333,7 +376,9 @@ export default function SubmitEvent() {
                 placeholder="https://example.com/event-image.jpg"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
               />
-              <p className="text-sm text-gray-500 mt-1">Provide a link to a high-quality image for your event</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Provide a link to a high-quality image for your event
+              </p>
             </div>
 
             <div className="md:col-span-2">
@@ -429,9 +474,41 @@ export default function SubmitEvent() {
           </div>
 
           <p className="text-sm text-gray-500 text-center mt-4">
-            By submitting, you agree to our terms and confirm that you have the rights to share this event information.
+            By submitting, you agree to our terms and confirm that you have the rights to share this event
+            information.
           </p>
         </form>
+
+        {/* Promotion callout (new, per plan) */}
+        <div className="mt-8">
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <div>
+              <div className="text-xl font-bold mb-1" style={{ color: '#7B2CBF' }}>
+                Want more visibility?
+              </div>
+              <div className="text-gray-700">
+                Featured placement is optional. If your event is time-sensitive, organizer options can help
+                you reach more people browsing for weekend plans.
+              </div>
+              <div className="mt-2">
+                <a
+                  href="/for-organizers#inquiry"
+                  className="text-sm font-semibold text-purple-700 hover:text-purple-800 underline underline-offset-2"
+                >
+                  Request the organizer guide
+                </a>
+              </div>
+            </div>
+
+            <a
+              href="/for-organizers"
+              className="px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity text-center"
+              style={{ backgroundColor: '#FF006E' }}
+            >
+              For Organizers →
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );

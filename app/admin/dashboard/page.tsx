@@ -4,6 +4,31 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
+const ORGANIZER_INQUIRY_STATUS_OPTIONS = [
+  { value: 'new', label: 'New' },
+  { value: 'contacted', label: 'Contacted' },
+  { value: 'quote_sent', label: 'Quote Sent' },
+  { value: 'paid', label: 'Paid' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'declined', label: 'Declined' },
+] as const;
+
+type OrganizerInquiryStatus = (typeof ORGANIZER_INQUIRY_STATUS_OPTIONS)[number]['value'];
+
+
+const formatEventLabel = (event: { title: string; event_date?: string | null }) => {
+  if (!event.event_date) return event.title;
+
+  // YYYY-MM-DD
+  const date = new Date(event.event_date);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+
+  return `${yyyy}-${mm}-${dd} · ${event.title}`;
+};
+
+
 export const VIBE_OPTIONS = [
   { value: "good_for_groups", label: "Good for Groups" },
   { value: "meet_people", label: "Meet People" },
@@ -102,6 +127,7 @@ type Subscriber = {
 type OrganizerInquiry = {
   id: number | string;
   created_at?: string;
+  status?: string;
 
   name?: string;
   email?: string;
@@ -117,8 +143,9 @@ type OrganizerInquiry = {
   [key: string]: any;
 };
 
+
 type FeaturedRow = {
-  id: string; // uuid in featured_events
+  id: string;
   event_id: number;
   rank: number;
   is_active: boolean;
@@ -165,11 +192,10 @@ function slugify(input: string) {
 }
 
 function buildEventSlug(title: string, eventDate: string) {
-  const datePart = (eventDate || '').slice(0, 10); // YYYY-MM-DD
+  const datePart = (eventDate || '').slice(0, 10);
   const base = slugify(title);
   return datePart ? `${base}-${datePart}` : base;
 }
-
 
 function pickFirst(...values: Array<string | undefined | null>) {
   for (const v of values) {
@@ -275,7 +301,6 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
 /* --------------------------- Events Manager --------------------------- */
 
 function EventsManager() {
@@ -283,6 +308,8 @@ function EventsManager() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [sortField, setSortField] = useState<'event_date'>('event_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     fetchEvents();
@@ -301,6 +328,29 @@ function EventsManager() {
     }
     setLoading(false);
   };
+
+  const handleSort = (field: 'event_date') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const sortedEvents = useMemo(() => {
+    const sorted = [...events].sort((a, b) => {
+      const aDate = new Date(a.event_date).getTime();
+      const bDate = new Date(b.event_date).getTime();
+      
+      if (sortDirection === 'asc') {
+        return aDate - bDate;
+      } else {
+        return bDate - aDate;
+      }
+    });
+    return sorted;
+  }, [events, sortField, sortDirection]);
 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this event?')) return;
@@ -349,7 +399,17 @@ function EventsManager() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Title</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
+                <th 
+                  className="px-4 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('event_date')}
+                >
+                  <div className="flex items-center gap-2">
+                    Date
+                    <span className="text-xs">
+                      {sortField === 'event_date' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </span>
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Location</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Vibe</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Pricing</th>
@@ -357,7 +417,7 @@ function EventsManager() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {events.map((event) => {
+              {sortedEvents.map((event) => {
                 const primaryVibe = event.vibe?.[0];
                 return (
                   <tr key={event.id} className="hover:bg-gray-50">
@@ -749,7 +809,6 @@ function EventForm({ event, onClose }: { event: Event | null; onClose: () => voi
     </form>
   );
 }
-
 /* --------------------------- Featured Manager --------------------------- */
 
 function FeaturedManager() {
@@ -758,8 +817,8 @@ function FeaturedManager() {
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | ''>('');
   const [rank, setRank] = useState<number>(100);
-  const [startsAt, setStartsAt] = useState<string>(''); // datetime-local string
-  const [endsAt, setEndsAt] = useState<string>(''); // datetime-local string
+  const [startsAt, setStartsAt] = useState<string>('');
+  const [endsAt, setEndsAt] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -1008,7 +1067,7 @@ function FeaturedManager() {
               <option value="">Select an event...</option>
               {events.map((e) => (
                 <option key={e.id} value={e.id}>
-                  {e.title}
+                  {formatEventLabel(e)}
                 </option>
               ))}
             </select>
@@ -1143,9 +1202,7 @@ function FeaturedManager() {
                             updateWindow(row, row.starts_at, nextEnd);
                           }}
                         />
-                        <div className="text-xs text-gray-500">
-                          Leave blank to show always.
-                        </div>
+                        <div className="text-xs text-gray-500">Leave blank to show always.</div>
                       </div>
                     </td>
 
@@ -1186,8 +1243,6 @@ function FeaturedManager() {
     </div>
   );
 }
-
-
 /* --------------------------- Stories Manager --------------------------- */
 
 function StoriesManager() {
@@ -1195,6 +1250,8 @@ function StoriesManager() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
+  const [sortField, setSortField] = useState<'published_date'>('published_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     fetchStories();
@@ -1212,6 +1269,29 @@ function StoriesManager() {
     }
     setLoading(false);
   };
+
+  const handleSort = (field: 'published_date') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const sortedStories = useMemo(() => {
+    const sorted = [...stories].sort((a, b) => {
+      const aDate = new Date(a.published_date).getTime();
+      const bDate = new Date(b.published_date).getTime();
+      
+      if (sortDirection === 'asc') {
+        return aDate - bDate;
+      } else {
+        return bDate - aDate;
+      }
+    });
+    return sorted;
+  }, [stories, sortField, sortDirection]);
 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this story?')) return;
@@ -1261,13 +1341,23 @@ function StoriesManager() {
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Title</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Author</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Published Date</th>
+                <th 
+                  className="px-4 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('published_date')}
+                >
+                  <div className="flex items-center gap-2">
+                    Published Date
+                    <span className="text-xs">
+                      {sortField === 'published_date' && (sortDirection === 'asc' ? '↑' : '↓')}
+                    </span>
+                  </div>
+                </th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Featured</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {stories.map((story) => (
+              {sortedStories.map((story) => (
                 <tr key={story.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm">{story.title}</td>
                   <td className="px-4 py-3 text-sm">{story.author}</td>
@@ -1476,9 +1566,7 @@ function StoryForm({ story, onClose }: { story: Story | null; onClose: () => voi
     </form>
   );
 }
-
-/* ------------------------ Subscribers + Submissions ------------------------ */
-/* These are unchanged except for one small addition in Submissions approve insert: vibe: [] */
+/* ------------------------ Subscribers Manager ------------------------ */
 
 function SubscribersManager() {
   const supabase = createClient(
@@ -1488,6 +1576,8 @@ function SubscribersManager() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [sortField, setSortField] = useState<'subscribed_at'>('subscribed_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     fetchSubscribers();
@@ -1514,6 +1604,34 @@ function SubscribersManager() {
     setLoading(false);
   };
 
+  const handleSort = (field: 'subscribed_at') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const filteredAndSortedSubscribers = useMemo(() => {
+    let filtered = subscribers.filter(sub => {
+      if (filter === 'active') return sub.active;
+      if (filter === 'inactive') return !sub.active;
+      return true;
+    });
+
+    return filtered.sort((a, b) => {
+      const aDate = new Date(a.subscribed_at).getTime();
+      const bDate = new Date(b.subscribed_at).getTime();
+      
+      if (sortDirection === 'asc') {
+        return aDate - bDate;
+      } else {
+        return bDate - aDate;
+      }
+    });
+  }, [subscribers, filter, sortField, sortDirection]);
+
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this subscriber?')) return;
 
@@ -1531,15 +1649,9 @@ function SubscribersManager() {
   };
 
   const handleExport = () => {
-    const filteredSubscribers = subscribers.filter(sub => {
-      if (filter === 'active') return sub.active;
-      if (filter === 'inactive') return !sub.active;
-      return true;
-    });
-
     const csv = [
       ['Email', 'Subscribed At', 'Source', 'Status'].join(','),
-      ...filteredSubscribers.map(sub => [
+      ...filteredAndSortedSubscribers.map(sub => [
         sub.email,
         new Date(sub.subscribed_at).toLocaleDateString(),
         sub.source,
@@ -1554,12 +1666,6 @@ function SubscribersManager() {
     a.download = `newsletter-subscribers-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
   };
-
-  const filteredSubscribers = subscribers.filter(sub => {
-    if (filter === 'active') return sub.active;
-    if (filter === 'inactive') return !sub.active;
-    return true;
-  });
 
   if (loading) {
     return <div className="text-gray-600">Loading subscribers...</div>;
@@ -1609,13 +1715,23 @@ function SubscribersManager() {
             <tr>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Source</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Subscribed At</th>
+              <th 
+                className="px-4 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('subscribed_at')}
+              >
+                <div className="flex items-center gap-2">
+                  Subscribed At
+                  <span className="text-xs">
+                    {sortField === 'subscribed_at' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </span>
+                </div>
+              </th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y">
-            {filteredSubscribers.map((subscriber) => (
+            {filteredAndSortedSubscribers.map((subscriber) => (
               <tr key={subscriber.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-sm">{subscriber.email}</td>
                 <td className="px-4 py-3 text-sm">
@@ -1651,7 +1767,7 @@ function SubscribersManager() {
             ))}
           </tbody>
         </table>
-        {filteredSubscribers.length === 0 && (
+        {filteredAndSortedSubscribers.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             No subscribers found.
           </div>
@@ -1660,6 +1776,7 @@ function SubscribersManager() {
     </div>
   );
 }
+/* ------------------------ Submissions Manager ------------------------ */
 
 function SubmissionsManager() {
   const supabase = createClient(
@@ -1672,6 +1789,8 @@ function SubmissionsManager() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
   const [viewingSubmission, setViewingSubmission] = useState<any>(null);
   const [editingSubmission, setEditingSubmission] = useState<any>(null);
+  const [sortField, setSortField] = useState<'submitted_at'>('submitted_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     fetchSubmissions();
@@ -1698,63 +1817,86 @@ function SubmissionsManager() {
     setLoading(false);
   };
 
-  const handleApprove = async (submission: any) => {
-  if (!confirm('Approve this event and publish it to the site?')) return;
-
-  try {
-    // 1. Safety check: prevent double-approval
-    if (submission.status === 'approved' && submission.approved_event_id) {
-      alert('This submission has already been approved.');
-      return;
+  const handleSort = (field: 'submitted_at') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
     }
+  };
 
-    // 2. Insert event into events table
-    const { data: insertedEvent, error: eventError } = await supabase
-      .from('events')
-      .insert([{
-        title: submission.title,
-        event_date: submission.event_date,
-        time: submission.time,
-        location: submission.location,
-        event_type: submission.event_type,
-        subtype_1: submission.subtype_1,
-        subtype_2: submission.subtype_2,
-        subtype_3: submission.subtype_3,
-        neighborhood: submission.neighborhood,
-        pricing_type: submission.pricing_type,
-        description: submission.description,
-        image_url: submission.image_url,
-        price: submission.price,
-        instagram_url: submission.instagram_url,
-        insider_tip: submission.insider_tip,
-        vibe: [], // start empty, admin can edit later
-      }])
-      .select()
-      .single();
+  const filteredAndSortedSubmissions = useMemo(() => {
+    let filtered = submissions.filter(sub => {
+      if (filter === 'all') return true;
+      return sub.status === filter;
+    });
 
-    if (eventError) throw eventError;
+    return filtered.sort((a, b) => {
+      const aDate = new Date(a.submitted_at).getTime();
+      const bDate = new Date(b.submitted_at).getTime();
+      
+      if (sortDirection === 'asc') {
+        return aDate - bDate;
+      } else {
+        return bDate - aDate;
+      }
+    });
+  }, [submissions, filter, sortField, sortDirection]);
 
-    // 3. Mark submission as approved and link created event
-    const { error: updateError } = await supabase
-      .from('event_submissions')
-      .update({
-        status: 'approved',
-        approved_event_id: insertedEvent.id,
-        approved_at: new Date().toISOString(),
-      })
-      .eq('id', submission.id);
+  const handleApprove = async (submission: any) => {
+    if (!confirm('Approve this event and publish it to the site?')) return;
 
-    if (updateError) throw updateError;
+    try {
+      if (submission.status === 'approved' && submission.approved_event_id) {
+        alert('This submission has already been approved.');
+        return;
+      }
 
-    alert('Event approved and published!');
-    fetchSubmissions();
-    setViewingSubmission(null);
-  } catch (error) {
-    console.error('Error approving submission:', error);
-    alert('Failed to approve event');
-  }
-};
+      const { data: insertedEvent, error: eventError } = await supabase
+        .from('events')
+        .insert([{
+          title: submission.title,
+          event_date: submission.event_date,
+          time: submission.time,
+          location: submission.location,
+          event_type: submission.event_type,
+          subtype_1: submission.subtype_1,
+          subtype_2: submission.subtype_2,
+          subtype_3: submission.subtype_3,
+          neighborhood: submission.neighborhood,
+          pricing_type: submission.pricing_type,
+          description: submission.description,
+          image_url: submission.image_url,
+          price: submission.price,
+          instagram_url: submission.instagram_url,
+          insider_tip: submission.insider_tip,
+          vibe: [],
+        }])
+        .select()
+        .single();
 
+      if (eventError) throw eventError;
+
+      const { error: updateError } = await supabase
+        .from('event_submissions')
+        .update({
+          status: 'approved',
+          approved_event_id: insertedEvent.id,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', submission.id);
+
+      if (updateError) throw updateError;
+
+      alert('Event approved and published!');
+      fetchSubmissions();
+      setViewingSubmission(null);
+    } catch (error) {
+      console.error('Error approving submission:', error);
+      alert('Failed to approve event');
+    }
+  };
 
   const handleReject = async (id: number) => {
     if (!confirm('Reject this event submission?')) return;
@@ -1795,17 +1937,14 @@ function SubmissionsManager() {
     }
   };
 
-  const filteredSubmissions = submissions.filter(sub => {
-    if (filter === 'all') return true;
-    return sub.status === filter;
-  });
-
   if (loading) {
     return <div className="text-gray-600">Loading submissions...</div>;
   }
+
   if (editingSubmission) {
     return <SubmissionEditForm submission={editingSubmission} onClose={() => { setEditingSubmission(null); fetchSubmissions(); }} onApprove={handleApprove} />;
   }
+
   if (viewingSubmission) {
     return (
       <div>
@@ -1980,13 +2119,23 @@ function SubmissionsManager() {
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Event</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Organizer</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Submitted</th>
+              <th 
+                className="px-4 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('submitted_at')}
+              >
+                <div className="flex items-center gap-2">
+                  Submitted
+                  <span className="text-xs">
+                    {sortField === 'submitted_at' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </span>
+                </div>
+              </th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y">
-            {filteredSubmissions.map((submission) => (
+            {filteredAndSortedSubmissions.map((submission) => (
               <tr key={submission.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">
                   <div className="text-sm font-semibold text-gray-900">{submission.title}</div>
@@ -2019,7 +2168,7 @@ function SubmissionsManager() {
             ))}
           </tbody>
         </table>
-        {filteredSubmissions.length === 0 && (
+        {filteredAndSortedSubmissions.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             No {filter !== 'all' ? filter : ''} submissions found.
           </div>
@@ -2234,14 +2383,50 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
     </div>
   );
 }
-
 /* ------------------------ Organizer Inquiries ------------------------ */
+
+type InquiryStatus = 'new' | 'contacted' | 'in_progress' | 'booked' | 'closed';
+
+const INQUIRY_STATUS_OPTIONS: Array<{ value: InquiryStatus; label: string; badge: string }> = [
+  { value: 'new', label: 'New', badge: 'NEW' },
+  { value: 'contacted', label: 'Contacted', badge: 'CONTACTED' },
+  { value: 'in_progress', label: 'In Progress', badge: 'IN PROGRESS' },
+  { value: 'booked', label: 'Booked', badge: 'BOOKED' },
+  { value: 'closed', label: 'Closed', badge: 'CLOSED' },
+];
+
+function statusPillClasses(status: InquiryStatus) {
+  switch (status) {
+    case 'new':
+      return 'bg-blue-100 text-blue-700 border-blue-200';
+    case 'contacted':
+      return 'bg-purple-100 text-purple-700 border-purple-200';
+    case 'in_progress':
+      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    case 'booked':
+      return 'bg-green-100 text-green-700 border-green-200';
+    case 'closed':
+      return 'bg-gray-100 text-gray-700 border-gray-200';
+    default:
+      return 'bg-gray-100 text-gray-700 border-gray-200';
+  }
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
 
 function OrganizerInquiriesManager() {
   const [inquiries, setInquiries] = useState<OrganizerInquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [viewing, setViewing] = useState<OrganizerInquiry | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const [sortField, setSortField] = useState<'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const fetchInquiries = async () => {
     setLoading(true);
@@ -2276,12 +2461,81 @@ function OrganizerInquiriesManager() {
     fetchInquiries();
   }, []);
 
+  const handleSort = (field: 'created_at') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const sortedInquiries = useMemo(() => {
+    return [...inquiries].sort((a, b) => {
+      const aDate = new Date(a.created_at || 0).getTime();
+      const bDate = new Date(b.created_at || 0).getTime();
+      return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
+    });
+  }, [inquiries, sortField, sortDirection]);
+
   const copyToClipboard = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value);
       alert('Copied!');
     } catch {
       alert('Could not copy. Try selecting and copying manually.');
+    }
+  };
+
+  const updateInquiryStatus = async (inquiryIdRaw: string, nextStatus: InquiryStatus) => {
+    const inquiryId = String(inquiryIdRaw || '').trim();
+
+    if (!inquiryId || inquiryId === 'undefined' || !isUuid(inquiryId)) {
+      alert('Invalid inquiry id. Refresh and try again.');
+      return;
+    }
+
+    setSavingId(inquiryId);
+
+    // optimistic UI
+    setInquiries((prev) =>
+      prev.map((i) => (String(i.id) === inquiryId ? { ...i, status: nextStatus } : i))
+    );
+    setViewing((prev) =>
+      prev && String(prev.id) === inquiryId ? { ...prev, status: nextStatus } : prev
+    );
+
+    try {
+      const res = await fetch(`/api/admin/organizer-inquiries/${encodeURIComponent(inquiryId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        await fetchInquiries();
+        alert(json?.error || `Failed to update status (${res.status})`);
+        return;
+      }
+
+      // Your PATCH route returns the updated row directly (not { inquiry: ... })
+      const updated = json;
+
+      if (updated && updated.id) {
+        setInquiries((prev) =>
+          prev.map((i) => (String(i.id) === inquiryId ? { ...i, ...updated } : i))
+        );
+        setViewing((prev) =>
+          prev && String(prev.id) === inquiryId ? { ...prev, ...updated } : prev
+        );
+      }
+    } catch (e) {
+      await fetchInquiries();
+      alert('Failed to update status. Check the console/server logs.');
+    } finally {
+      setSavingId(null);
     }
   };
 
@@ -2323,6 +2577,40 @@ function OrganizerInquiriesManager() {
             >
               Close
             </button>
+          </div>
+
+          {/* Status control */}
+          <div className="mt-6 flex items-center gap-3">
+            <div
+              className={`inline-flex items-center px-3 py-1 rounded-lg border text-sm font-semibold ${
+                statusPillClasses((viewing.status || 'new') as InquiryStatus)
+              }`}
+            >
+              {INQUIRY_STATUS_OPTIONS.find(
+                (s) => s.value === ((viewing.status || 'new') as InquiryStatus)
+              )?.badge || 'NEW'}
+            </div>
+
+            <div className="min-w-[220px]">
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Status</label>
+              <select
+                value={(viewing.status || 'new') as InquiryStatus}
+                onChange={(e) =>
+                  updateInquiryStatus(String(viewing.id), e.target.value as InquiryStatus)
+                }
+                disabled={savingId === String(viewing.id)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              >
+                {INQUIRY_STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              {savingId === String(viewing.id) && (
+                <div className="text-xs text-gray-500 mt-2">Saving…</div>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -2411,20 +2699,34 @@ function OrganizerInquiriesManager() {
             <tr>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Organizer</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Package</th>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Submitted</th>
+              <th
+                className="px-4 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('created_at')}
+              >
+                <div className="flex items-center gap-2">
+                  Submitted
+                  <span className="text-xs">
+                    {sortField === 'created_at' && (sortDirection === 'asc' ? '↑' : '↓')}
+                  </span>
+                </div>
+              </th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
             </tr>
           </thead>
 
           <tbody className="divide-y">
-            {inquiries.map((inq) => {
+            {sortedInquiries.map((inq) => {
+              const id = String(inq.id);
               const name = inq.name || 'Organizer';
               const email = inq.email || '';
               const submitted = formatDateTimeMaybe(inq.created_at);
 
+              const currentStatus = ((inq.status || 'new') as InquiryStatus);
+
               return (
-                <tr key={String(inq.id)} className="hover:bg-gray-50">
+                <tr key={id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm font-semibold text-gray-900">
                     <div>{name}</div>
                     {inq.event_name && <div className="text-xs text-gray-600">{inq.event_name}</div>}
@@ -2438,6 +2740,32 @@ function OrganizerInquiriesManager() {
                     ) : (
                       <span className="text-gray-500">None</span>
                     )}
+                  </td>
+
+                  <td className="px-4 py-3 text-sm">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded-lg border text-xs font-semibold ${statusPillClasses(
+                          currentStatus
+                        )}`}
+                      >
+                        {INQUIRY_STATUS_OPTIONS.find((s) => s.value === currentStatus)?.badge || 'NEW'}
+                      </span>
+
+                      <select
+                        value={currentStatus}
+                        onChange={(e) => updateInquiryStatus(id, e.target.value as InquiryStatus)}
+                        disabled={savingId === id}
+                        className="px-2 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
+                        title="Update status"
+                      >
+                        {INQUIRY_STATUS_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </td>
 
                   <td className="px-4 py-3 text-sm text-gray-700">
@@ -2455,11 +2783,17 @@ function OrganizerInquiriesManager() {
                   </td>
 
                   <td className="px-4 py-3 text-sm">
-                    <button onClick={() => setViewing(inq)} className="text-purple-600 hover:text-purple-800 font-semibold">
+                    <button
+                      onClick={() => setViewing(inq)}
+                      className="text-purple-600 hover:text-purple-800 font-semibold"
+                    >
                       View
                     </button>
                     {email && (
-                      <button onClick={() => copyToClipboard(email)} className="ml-3 text-gray-600 hover:text-gray-800">
+                      <button
+                        onClick={() => copyToClipboard(email)}
+                        className="ml-3 text-gray-600 hover:text-gray-800"
+                      >
                         Copy Email
                       </button>
                     )}

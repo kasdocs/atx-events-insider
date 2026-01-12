@@ -102,10 +102,7 @@ export default function Sidebar() {
         {storiesLoading ? (
           <div className="space-y-4">
             {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="bg-white border border-gray-200 rounded-lg overflow-hidden"
-              >
+              <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                 <div className="w-full h-32 bg-gray-200 animate-pulse" />
                 <div className="p-3 space-y-2">
                   <div className="h-3 w-24 bg-gray-200 rounded animate-pulse" />
@@ -246,20 +243,31 @@ export default function Sidebar() {
       {/* Newsletter Signup */}
       <NewsletterSignup source="homepage-sidebar" />
 
-      {/* Submit Event CTA */}
+      {/* Organizer CTA (replaces Submit Event CTA) */}
       <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
         <h3 className="font-bold text-lg mb-2" style={{ color: '#7B2CBF' }}>
           🎉 Have an Event?
         </h3>
-        <p className="text-sm text-gray-600 mb-4">Share your Austin event with our community!</p>
+        <p className="text-sm text-gray-600 mb-4">
+          Want more visibility? Learn about featured placement and organizer promotion options.
+        </p>
 
         <Link
-          href="/submit-event"
+          href="/for-organizers"
           className="block w-full px-4 py-3 text-center text-white font-semibold rounded-lg hover:opacity-90 transition-opacity"
           style={{ backgroundColor: '#FF006E' }}
         >
-          Submit Your Event →
+          For Organizers →
         </Link>
+
+        <div className="mt-3 text-center">
+          <Link
+            href="/submit-event"
+            className="text-xs font-semibold text-purple-700 hover:text-purple-800 underline underline-offset-2"
+          >
+            Or submit for free
+          </Link>
+        </div>
       </div>
     </div>
   );

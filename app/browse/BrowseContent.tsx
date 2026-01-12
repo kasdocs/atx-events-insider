@@ -272,21 +272,32 @@ export default function BrowseContent() {
         </div>
       </div>
 
-      {/* Organizer CTA */}
+      {/* Organizer CTA (updated) */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6 flex items-center justify-between gap-6">
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
           <div>
             <div className="text-xl font-bold mb-1" style={{ color: '#7B2CBF' }}>
               Event Organizer?
             </div>
-            <div className="text-gray-600">Get your event featured on ATX Events Insider</div>
+            <div className="text-gray-600">
+              Want more visibility? Learn about featured placement and organizer promotion options.
+            </div>
+            <div className="mt-2">
+              <a
+                href="/submit-event"
+                className="text-sm font-semibold text-purple-700 hover:text-purple-800 underline underline-offset-2"
+              >
+                Or submit for free
+              </a>
+            </div>
           </div>
+
           <a
-            href="/submit-event"
-            className="px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity"
+            href="/for-organizers"
+            className="px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity text-center"
             style={{ backgroundColor: '#FF006E' }}
           >
-            Submit Your Event →
+            Learn More →
           </a>
         </div>
       </div>
