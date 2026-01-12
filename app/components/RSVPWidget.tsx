@@ -24,6 +24,11 @@ export default function RSVPWidget({
   const [goingCount, setGoingCount] = useState(0);
 
   const refreshCount = async () => {
+    if (!supabase) {
+      setGoingCount(0);
+      return;
+    }
+
     const { count, error } = await supabase
       .from('event_rsvps')
       .select('*', { count: 'exact', head: true })
@@ -39,6 +44,16 @@ export default function RSVPWidget({
 
     const load = async () => {
       setLoading(true);
+
+      // ✅ Guard
+      if (!supabase) {
+        if (!cancelled) {
+          setIsGoing(false);
+          setGoingCount(0);
+          setLoading(false);
+        }
+        return;
+      }
 
       // counts show for everyone
       await refreshCount();
@@ -86,6 +101,12 @@ export default function RSVPWidget({
     setSaving(true);
 
     try {
+      // ✅ Guard
+      if (!supabase) {
+        requireLogin();
+        return;
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
       const user = sessionData.session?.user ?? null;
 
@@ -110,7 +131,7 @@ export default function RSVPWidget({
 
         setIsGoing(false);
         await refreshCount();
-        router.refresh(); // ✅ refresh server components on next navigation
+        router.refresh();
         return;
       }
 
@@ -128,7 +149,7 @@ export default function RSVPWidget({
 
       setIsGoing(true);
       await refreshCount();
-      router.refresh(); // ✅ refresh server components on next navigation
+      router.refresh();
     } finally {
       setSaving(false);
     }

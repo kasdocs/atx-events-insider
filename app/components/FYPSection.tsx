@@ -9,8 +9,6 @@ import EventCard from '@/app/components/EventCard';
 type EventRow = Database['public']['Tables']['events']['Row'];
 type PrefRow = Database['public']['Tables']['user_preferences']['Row'];
 
-// Pull the exact vibe enum type from your DB types.
-// If your schema uses a different enum/table name, this will still compile as long as events.vibe exists.
 type Vibe = NonNullable<EventRow['vibe']>[number];
 
 function parseDateKey(dateStr: string | null) {
@@ -33,7 +31,6 @@ function uniqueById(events: EventRow[]) {
 }
 
 function toVibes(value: unknown): Vibe[] {
-  // We trust DB data shape at runtime but keep TS happy by narrowing.
   if (!Array.isArray(value)) return [];
   return value.filter((v): v is Vibe => typeof v === 'string' && v.length > 0) as Vibe[];
 }
@@ -90,6 +87,16 @@ export default function FYPSection({
     const load = async () => {
       setLoading(true);
       setShowCTA(false);
+
+      // ✅ Guard: supabase can be null if env vars are missing
+      if (!supabase) {
+        if (!cancelled) {
+          setFypEvents([]);
+          setShowCTA(false);
+          setLoading(false);
+        }
+        return;
+      }
 
       const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
       if (sessionErr) console.error('FYP getSession error:', sessionErr);
@@ -173,7 +180,6 @@ export default function FYPSection({
 
   if (loading) return null;
 
-  // CTA for logged-in users who have no prefs (or no matches)
   if (showCTA && fypEvents.length === 0) {
     return (
       <div className="mb-12">

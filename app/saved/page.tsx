@@ -8,14 +8,10 @@ import Navbar from '@/app/components/Navbar';
 import EventCard from '@/app/components/EventCard';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
-type SavedRow = Pick<
-  Database['public']['Tables']['saved_events']['Row'],
-  'event_id' | 'created_at'
->;
+type SavedRow = Pick<Database['public']['Tables']['saved_events']['Row'], 'event_id' | 'created_at'>;
 
 type PrefRow = Database['public']['Tables']['user_preferences']['Row'];
 
-// Canonical options from your screenshots
 const EVENT_TYPE_OPTIONS: string[] = [
   'Music',
   'Food & Drink',
@@ -50,7 +46,6 @@ const NEIGHBORHOOD_OPTIONS: string[] = [
   'Other',
 ];
 
-// Canonical vibe list grouped by category
 const VIBE_GROUPS: Array<{
   category: string;
   vibes: Array<{ value: string; label: string }>;
@@ -129,7 +124,6 @@ const VIBE_GROUPS: Array<{
   },
 ];
 
-// Fallback formatter for any internal key that is not in the canonical list
 const formatInternalLabel = (value: string) => {
   return value
     .replace(/_/g, ' ')
@@ -139,13 +133,10 @@ const formatInternalLabel = (value: string) => {
     .join(' ');
 };
 
-const VIBE_LABEL_BY_VALUE: Record<string, string> = VIBE_GROUPS.reduce(
-  (acc, group) => {
-    for (const v of group.vibes) acc[v.value] = v.label;
-    return acc;
-  },
-  {} as Record<string, string>
-);
+const VIBE_LABEL_BY_VALUE: Record<string, string> = VIBE_GROUPS.reduce((acc, group) => {
+  for (const v of group.vibes) acc[v.value] = v.label;
+  return acc;
+}, {} as Record<string, string>);
 
 export default function SavedEventsPage() {
   const router = useRouter();
@@ -164,7 +155,6 @@ export default function SavedEventsPage() {
   const [favoriteNeighborhood, setFavoriteNeighborhood] = useState<string>('');
   const [favoriteVibes, setFavoriteVibes] = useState<string[]>([]);
 
-  // NEW: Favorites section starts collapsed
   const [favoritesOpen, setFavoritesOpen] = useState(false);
 
   useEffect(() => {
@@ -175,11 +165,16 @@ export default function SavedEventsPage() {
       setPrefsLoading(true);
       setPrefsMsg(null);
 
-const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-if (sessionErr) console.error('getSession error:', sessionErr);
+      // ✅ Guard
+      if (!supabase) {
+        router.push('/login?returnTo=/saved');
+        return;
+      }
 
-const user = sessionData.session?.user ?? null;
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+      if (sessionErr) console.error('getSession error:', sessionErr);
 
+      const user = sessionData.session?.user ?? null;
 
       if (!user) {
         router.push('/login?returnTo=/saved');
@@ -261,6 +256,12 @@ const user = sessionData.session?.user ?? null;
   const savePreferences = async () => {
     if (!userId) return;
 
+    // ✅ Guard
+    if (!supabase) {
+      setPrefsMsg('Auth is not configured. Missing Supabase env vars.');
+      return;
+    }
+
     setPrefsSaving(true);
     setPrefsMsg(null);
 
@@ -296,7 +297,6 @@ const user = sessionData.session?.user ?? null;
           Saved Events
         </h1>
 
-        {/* Favorites (collapsible) */}
         <div className="border border-gray-200 rounded-xl p-5 mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
@@ -304,41 +304,39 @@ const user = sessionData.session?.user ?? null;
                 Your Favorites
               </h2>
               <div className="text-sm text-gray-600 mt-1">
-                Save your favorites to build your <span className="font-semibold">For You</span>{' '}
-                feed on the homepage.
+                Save your favorites to build your <span className="font-semibold">For You</span> feed
+                on the homepage.
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-             <button
-  type="button"
-  onClick={() => setFavoritesOpen((v) => !v)}
-  className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors"
-  aria-expanded={favoritesOpen}
-  aria-controls="favorites-panel"
->
-  <span>
-    {favoritesOpen ? 'Hide favorites' : 'Set favorites'}
-    {favoritesSelectedCount > 0 ? ` (${favoritesSelectedCount})` : ''}
-  </span>
+              <button
+                type="button"
+                onClick={() => setFavoritesOpen((v) => !v)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors"
+                aria-expanded={favoritesOpen}
+                aria-controls="favorites-panel"
+              >
+                <span>
+                  {favoritesOpen ? 'Hide favorites' : 'Set favorites'}
+                  {favoritesSelectedCount > 0 ? ` (${favoritesSelectedCount})` : ''}
+                </span>
 
-  {/* Chevron */}
-  <svg
-    className={`w-4 h-4 transition-transform duration-200 ${
-      favoritesOpen ? 'rotate-180' : 'rotate-0'
-    }`}
-    viewBox="0 0 20 20"
-    fill="currentColor"
-    aria-hidden="true"
-  >
-    <path
-      fillRule="evenodd"
-      d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
-      clipRule="evenodd"
-    />
-  </svg>
-</button>
-
+                <svg
+                  className={`w-4 h-4 transition-transform duration-200 ${
+                    favoritesOpen ? 'rotate-180' : 'rotate-0'
+                  }`}
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
 
               <button
                 onClick={savePreferences}
@@ -351,7 +349,6 @@ const user = sessionData.session?.user ?? null;
             </div>
           </div>
 
-          {/* Optional collapsed summary */}
           {!favoritesOpen && !prefsLoading ? (
             <div className="mt-4 text-sm text-gray-700">
               {favoritesSelectedCount === 0 ? (
@@ -371,7 +368,6 @@ const user = sessionData.session?.user ?? null;
             </div>
           ) : null}
 
-          {/* Panel */}
           <div id="favorites-panel" className={favoritesOpen ? 'mt-5' : 'hidden'}>
             {prefsLoading ? (
               <div className="text-gray-600">Loading preferences...</div>
@@ -380,7 +376,6 @@ const user = sessionData.session?.user ?? null;
                 {prefsMsg ? <div className="text-sm text-gray-700 mb-4">{prefsMsg}</div> : null}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Favorite Event Type */}
                   <div>
                     <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
                       🎭 Favorite Event Type
@@ -402,7 +397,6 @@ const user = sessionData.session?.user ?? null;
                     </select>
                   </div>
 
-                  {/* Favorite Neighborhood */}
                   <div>
                     <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
                       📍 Favorite Neighborhood
@@ -425,7 +419,6 @@ const user = sessionData.session?.user ?? null;
                   </div>
                 </div>
 
-                {/* Favorite Vibes */}
                 <div className="mt-5">
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <label className="block text-sm font-semibold" style={{ color: '#7B2CBF' }}>
@@ -434,7 +427,6 @@ const user = sessionData.session?.user ?? null;
                     <div className="text-xs text-gray-600">Selected: {favoriteVibes.length}/3</div>
                   </div>
 
-                  {/* Selected summary */}
                   {favoriteVibes.length ? (
                     <div className="flex flex-wrap gap-2 mb-4">
                       {favoriteVibes.map((v) => (
@@ -492,7 +484,6 @@ const user = sessionData.session?.user ?? null;
           </div>
         </div>
 
-        {/* Saved Events list */}
         {loading ? (
           <div className="text-gray-600">Loading...</div>
         ) : events.length === 0 ? (
