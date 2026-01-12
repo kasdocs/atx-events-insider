@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Navbar from '@/app/components/Navbar';
 
 export default function AboutPage() {

@@ -32,10 +32,10 @@ export default function BrowseContent() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Going counts by event id
+  // Going counts by event id
   const [goingCountsByEventId, setGoingCountsByEventId] = useState<Record<number, number>>({});
 
-  // ✅ Featured event ids
+  // Featured event ids
   const [featuredIds, setFeaturedIds] = useState<Set<number>>(new Set());
 
   // Filters
@@ -48,19 +48,16 @@ export default function BrowseContent() {
   const [isMobile, setIsMobile] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
 
-  // Detect mobile and set default collapse behavior:
-  // - mobile: start collapsed
-  // - md+: always open
+  // Detect mobile and set default collapse behavior
   useEffect(() => {
     const update = () => {
-      const mobile = window.innerWidth < 768; // Tailwind md breakpoint
+      const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
       setFiltersOpen(!mobile);
     };
 
     update();
     window.addEventListener('resize', update);
-
     return () => window.removeEventListener('resize', update);
   }, []);
 
@@ -70,7 +67,7 @@ export default function BrowseContent() {
     if (date) setSelectedDate(date);
   }, [searchParams]);
 
-  // ✅ Fetch featured ids (public route)
+  // Fetch featured ids (public route)
   useEffect(() => {
     let cancelled = false;
 
@@ -86,7 +83,7 @@ export default function BrowseContent() {
 
         if (!cancelled) setFeaturedIds(new Set(ids));
       } catch {
-        // silent fail - browse still works
+        // silent fail
       }
     };
 
@@ -97,7 +94,16 @@ export default function BrowseContent() {
     };
   }, []);
 
+  // Fetch events + going counts
   useEffect(() => {
+    if (!supabase) {
+      // env missing, don't crash and don't loop forever
+      setEvents([]);
+      setGoingCountsByEventId({});
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     const fetchEventsAndCounts = async () => {
@@ -108,7 +114,7 @@ export default function BrowseContent() {
       const { data, error } = await supabase
         .from('events')
         .select('*')
-        .gte('event_date', today) // ✅ hide past events
+        .gte('event_date', today)
         .order('event_date', { ascending: true })
         .returns<EventRow[]>();
 
@@ -135,7 +141,6 @@ export default function BrowseContent() {
         return;
       }
 
-      // ✅ Bulk fetch "going" rows and count client-side
       const { data: rsvpRows, error: rsvpErr } = await supabase
         .from('event_rsvps')
         .select('event_id')
@@ -178,23 +183,20 @@ export default function BrowseContent() {
     const d = e.event_date ?? '';
 
     if (selectedDate && d !== selectedDate) return false;
-
     if (selectedNeighborhood !== 'all' && e.neighborhood !== selectedNeighborhood) return false;
-
     if (selectedType !== 'all' && e.event_type !== selectedType) return false;
 
     if (selectedCost !== 'all') {
       const pricing = e.pricing_type ?? '';
       if (selectedCost === 'free' && pricing !== 'Free') return false;
       if (selectedCost === 'free_rsvp' && pricing !== 'Free with RSVP') return false;
-      if (selectedCost === 'paid' && (pricing === 'Free' || pricing === 'Free with RSVP'))
-        return false;
+      if (selectedCost === 'paid' && (pricing === 'Free' || pricing === 'Free with RSVP')) return false;
     }
 
     return true;
   });
 
-  // --- Sticky date grouping helpers ---
+  // Group by date
   const groupedByDate = filteredEvents.reduce<Record<string, EventRow[]>>((acc, ev) => {
     const key = ev.event_date ?? '';
     if (!key) return acc;
@@ -213,7 +215,6 @@ export default function BrowseContent() {
       day: 'numeric',
     });
   };
-  // -------------------------------
 
   const activeFilterCount = () => {
     let count = 0;
@@ -233,18 +234,11 @@ export default function BrowseContent() {
 
   const timeToMinutes = (t?: string | null) => {
     if (!t) return 24 * 60 + 1;
-
     const s = t.trim();
 
-    // 24h or "HH:MM:SS"
     const m24 = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-    if (m24) {
-      const hh = Number(m24[1]);
-      const mm = Number(m24[2]);
-      return hh * 60 + mm;
-    }
+    if (m24) return Number(m24[1]) * 60 + Number(m24[2]);
 
-    // "h:mm AM/PM"
     const m12 = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
     if (m12) {
       let hh = Number(m12[1]);
@@ -262,7 +256,6 @@ export default function BrowseContent() {
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      {/* Header */}
       <div className="bg-gradient-to-b from-purple-50 to-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-5xl font-bold mb-3" style={{ color: '#7B2CBF' }}>
@@ -272,7 +265,7 @@ export default function BrowseContent() {
         </div>
       </div>
 
-      {/* Organizer CTA (updated) */}
+      {/* Organizer CTA */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
           <div>
@@ -305,7 +298,6 @@ export default function BrowseContent() {
       {/* Filters Row */}
       <div className="border-b border-gray-200 mt-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Mobile controls */}
           <div className="flex items-center justify-between gap-3 mb-4 md:hidden">
             <button
               type="button"
@@ -327,10 +319,8 @@ export default function BrowseContent() {
             ) : null}
           </div>
 
-          {/* On desktop (md+): always visible. On mobile: collapsible */}
           <div className={`${filtersOpen ? 'block' : 'hidden'} md:block`}>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Date */}
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
                   📅 Date
@@ -343,7 +333,6 @@ export default function BrowseContent() {
                 />
               </div>
 
-              {/* Neighborhood */}
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
                   📍 Neighborhood
@@ -362,7 +351,6 @@ export default function BrowseContent() {
                 </select>
               </div>
 
-              {/* Event Type */}
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
                   🎭 Event Type
@@ -381,7 +369,6 @@ export default function BrowseContent() {
                 </select>
               </div>
 
-              {/* Cost */}
               <div>
                 <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
                   💸 Cost
@@ -399,7 +386,6 @@ export default function BrowseContent() {
               </div>
             </div>
 
-            {/* Desktop clear row */}
             <div className="hidden md:flex justify-end mt-4">
               {activeFilterCount() > 0 ? (
                 <button
@@ -413,12 +399,9 @@ export default function BrowseContent() {
             </div>
           </div>
 
-          {/* Mobile collapsed summary */}
           {!filtersOpen && isMobile ? (
             <div className="md:hidden text-sm text-gray-600">
-              {activeFilterCount() > 0
-                ? `Filters applied: ${activeFilterCount()}`
-                : 'No filters applied'}
+              {activeFilterCount() > 0 ? `Filters applied: ${activeFilterCount()}` : 'No filters applied'}
             </div>
           ) : null}
         </div>
@@ -426,6 +409,12 @@ export default function BrowseContent() {
 
       {/* Results */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {!supabase && (
+          <div className="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-900">
+            Supabase is not configured (missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY).
+          </div>
+        )}
+
         {loading ? (
           <div className="text-gray-600">Loading events...</div>
         ) : (
@@ -443,21 +432,17 @@ export default function BrowseContent() {
                     const aFeat = typeof a.id === 'number' && featuredIds.has(a.id) ? 1 : 0;
                     const bFeat = typeof b.id === 'number' && featuredIds.has(b.id) ? 1 : 0;
 
-                    // featured first
                     if (aFeat !== bFeat) return bFeat - aFeat;
 
-                    // then sort by time
                     const aTime = timeToMinutes(a.time);
                     const bTime = timeToMinutes(b.time);
                     if (aTime !== bTime) return aTime - bTime;
 
-                    // stable fallback
                     return (a.title ?? '').localeCompare(b.title ?? '');
                   });
 
                   return (
                     <section key={dateKey} className="space-y-6">
-                      {/* Sticky Date Header */}
                       <div className="sticky top-16 z-20 bg-white/95 backdrop-blur border-b border-gray-200">
                         <div className="py-4">
                           <h2 className="text-3xl font-bold" style={{ color: '#7B2CBF' }}>
@@ -466,21 +451,15 @@ export default function BrowseContent() {
                         </div>
                       </div>
 
-                      {/* Events for this date */}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {sortedForDate.map((event) => {
-                          const isFeatured =
-                            typeof event.id === 'number' ? featuredIds.has(event.id) : false;
+                          const isFeatured = typeof event.id === 'number' ? featuredIds.has(event.id) : false;
 
                           return (
                             <EventCard
                               key={event.id}
                               event={event}
-                              goingCount={
-                                typeof event.id === 'number'
-                                  ? (goingCountsByEventId[event.id] ?? 0)
-                                  : 0
-                              }
+                              goingCount={typeof event.id === 'number' ? (goingCountsByEventId[event.id] ?? 0) : 0}
                               featured={isFeatured}
                             />
                           );

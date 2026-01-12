@@ -21,6 +21,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!supabase) {
+      setMessage('Auth is not configured. Missing Supabase env vars.');
+      return;
+    }
+
     setLoading(true);
     setMessage('');
 
@@ -55,23 +61,23 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const isError =
     message.toLowerCase().includes('invalid') ||
     message.toLowerCase().includes('error') ||
-    message.toLowerCase().includes('failed');
+    message.toLowerCase().includes('failed') ||
+    message.toLowerCase().includes('missing');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
-        {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
           aria-label="Close"
+          type="button"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
 
-        {/* Header */}
         <h2 className="text-2xl font-bold mb-2" style={{ color: '#7B2CBF' }}>
           {isSignUp ? 'Create Account' : 'Welcome Back'}
         </h2>
@@ -79,7 +85,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           {isSignUp ? 'Sign up to save your favorite events' : 'Sign in to access your saved events'}
         </p>
 
-        {/* Form */}
         <form onSubmit={handleAuth} className="space-y-4">
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
@@ -111,7 +116,11 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           </div>
 
           {message && (
-            <div className={`p-3 rounded-lg text-sm ${isError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+            <div
+              className={`p-3 rounded-lg text-sm ${
+                isError ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+              }`}
+            >
               {message}
             </div>
           )}
@@ -126,7 +135,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           </button>
         </form>
 
-        {/* Toggle Sign In/Sign Up */}
         <div className="mt-6 text-center">
           <button
             onClick={() => {

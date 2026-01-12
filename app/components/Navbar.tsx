@@ -7,6 +7,7 @@ import type { User } from '@supabase/supabase-js';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 export default function Navbar() {
+  // IMPORTANT: createSupabaseBrowserClient() now returns `null` if env vars are missing
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [user, setUser] = useState<User | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -15,6 +16,10 @@ export default function Navbar() {
   const pathname = usePathname();
 
   useEffect(() => {
+    // If Supabase env vars aren’t available (build or misconfigured deploy),
+    // don’t crash the UI. Navbar will just behave as logged out.
+    if (!supabase) return;
+
     let cancelled = false;
 
     const loadUser = async () => {
@@ -41,18 +46,21 @@ export default function Navbar() {
   }, [pathname]);
 
   const handleLogout = async () => {
+    if (!supabase) return;
+
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('Error signing out:', error);
       return;
     }
+
     setUser(null);
     router.push('/');
     router.refresh();
   };
 
   const goToLogin = () => {
-    router.push(`/login?returnTo=${encodeURIComponent(pathname)}`);
+    router.push(`/login?returnTo=${encodeURIComponent(pathname || '/')}`);
   };
 
   const isActive = (href: string) => {
