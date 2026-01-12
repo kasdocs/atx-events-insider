@@ -9,6 +9,10 @@ import EventCard from '@/app/components/EventCard';
 type EventRow = Database['public']['Tables']['events']['Row'];
 type PrefRow = Database['public']['Tables']['user_preferences']['Row'];
 
+// Pull the exact vibe enum type from your DB types.
+// If your schema uses a different enum/table name, this will still compile as long as events.vibe exists.
+type Vibe = NonNullable<EventRow['vibe']>[number];
+
 function parseDateKey(dateStr: string | null) {
   if (!dateStr) return Number.POSITIVE_INFINITY;
   const [y, m, d] = dateStr.split('-').map((x) => Number(x));
@@ -28,20 +32,28 @@ function uniqueById(events: EventRow[]) {
   return out;
 }
 
+function toVibes(value: unknown): Vibe[] {
+  // We trust DB data shape at runtime but keep TS happy by narrowing.
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is Vibe => typeof v === 'string' && v.length > 0) as Vibe[];
+}
+
 function scoreEventForUser(event: EventRow, prefs: PrefRow) {
   let score = 0;
 
   const favType = (prefs.favorite_event_type ?? '').trim();
   const favHood = (prefs.favorite_neighborhood ?? '').trim();
-  const favVibes = Array.isArray(prefs.favorite_vibes) ? prefs.favorite_vibes : [];
+
+  const favVibes = toVibes(prefs.favorite_vibes);
+  const eventVibes = toVibes(event.vibe);
 
   if (favType && event.event_type && event.event_type === favType) score += 100;
 
-  if (favVibes.length && Array.isArray(event.vibe)) {
-    const vibeSet = new Set(event.vibe);
+  if (favVibes.length && eventVibes.length) {
+    const vibeSet = new Set<Vibe>(eventVibes);
     let matches = 0;
     for (const v of favVibes) {
-      if (v && vibeSet.has(v)) matches += 1;
+      if (vibeSet.has(v)) matches += 1;
     }
     score += matches * 10;
   }
@@ -55,12 +67,18 @@ function hasAnyPrefs(prefs: PrefRow | null) {
   if (!prefs) return false;
   const hasType = Boolean((prefs.favorite_event_type ?? '').trim());
   const hasHood = Boolean((prefs.favorite_neighborhood ?? '').trim());
-  const vibes = Array.isArray(prefs.favorite_vibes) ? prefs.favorite_vibes : [];
-  const hasVibes = vibes.filter(Boolean).length > 0;
+  const vibes = toVibes(prefs.favorite_vibes);
+  const hasVibes = vibes.length > 0;
   return hasType || hasHood || hasVibes;
 }
 
-export default function FYPSection({ events }: { events: EventRow[] }) {
+export default function FYPSection({
+  events,
+  goingCountsByEventId,
+}: {
+  events: EventRow[];
+  goingCountsByEventId?: Record<number, number>;
+}) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [loading, setLoading] = useState(true);
   const [fypEvents, setFypEvents] = useState<EventRow[]>([]);
@@ -74,9 +92,9 @@ export default function FYPSection({ events }: { events: EventRow[] }) {
       setShowCTA(false);
 
       const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-if (sessionErr) console.error('FYP getSession error:', sessionErr);
+      if (sessionErr) console.error('FYP getSession error:', sessionErr);
 
-const user = sessionData.session?.user ?? null;
+      const user = sessionData.session?.user ?? null;
 
       if (!user) {
         if (!cancelled) {
@@ -91,11 +109,11 @@ const user = sessionData.session?.user ?? null;
         .from('user_preferences')
         .select('user_id, created_at, favorite_event_type, favorite_neighborhood, favorite_vibes')
         .eq('user_id', user.id)
-        .maybeSingle<PrefRow>();
+        .maybeSingle();
 
       if (prefErr) console.error('FYP preferences error:', prefErr);
 
-      const prefsObj = prefs ?? null;
+      const prefsObj = (prefs as PrefRow | null) ?? null;
 
       // Logged in but no prefs set yet: show CTA
       if (!prefsObj || !hasAnyPrefs(prefsObj)) {
@@ -116,15 +134,17 @@ const user = sessionData.session?.user ?? null;
         .filter(({ event }) => {
           const favType = (prefsObj.favorite_event_type ?? '').trim();
           const favHood = (prefsObj.favorite_neighborhood ?? '').trim();
-          const favVibes = Array.isArray(prefsObj.favorite_vibes) ? prefsObj.favorite_vibes : [];
+
+          const favVibes = toVibes(prefsObj.favorite_vibes);
+          const eventVibes = toVibes(event.vibe);
 
           const typeMatch = favType && event.event_type === favType;
           const hoodMatch = favHood && event.neighborhood === favHood;
 
           let vibeMatch = false;
-          if (favVibes.length && Array.isArray(event.vibe)) {
-            const vibeSet = new Set(event.vibe);
-            vibeMatch = favVibes.some((v) => v && vibeSet.has(v));
+          if (favVibes.length && eventVibes.length) {
+            const vibeSet = new Set<Vibe>(eventVibes);
+            vibeMatch = favVibes.some((v) => vibeSet.has(v));
           }
 
           return Boolean(typeMatch || vibeMatch || hoodMatch);
@@ -139,7 +159,7 @@ const user = sessionData.session?.user ?? null;
 
       if (!cancelled) {
         setFypEvents(finalList);
-        setShowCTA(finalList.length === 0); // if nothing matched, prompt them too
+        setShowCTA(finalList.length === 0);
         setLoading(false);
       }
     };
@@ -162,9 +182,7 @@ const user = sessionData.session?.user ?? null;
         </h2>
 
         <div className="border border-gray-200 rounded-xl p-5 bg-white">
-          <p className="text-gray-700 mb-3">
-            Set your favorites to get a personalized “For You” feed.
-          </p>
+          <p className="text-gray-700 mb-3">Set your favorites to get a personalized “For You” feed.</p>
 
           <Link
             href="/saved"
@@ -178,7 +196,6 @@ const user = sessionData.session?.user ?? null;
     );
   }
 
-  // No FYP and no CTA means: not logged in or no data
   if (fypEvents.length === 0) return null;
 
   return (
@@ -189,7 +206,11 @@ const user = sessionData.session?.user ?? null;
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {fypEvents.map((event) => (
-          <EventCard key={event.id} event={event} />
+          <EventCard
+            key={event.id}
+            event={event}
+            goingCount={typeof event.id === 'number' ? (goingCountsByEventId?.[event.id] ?? 0) : 0}
+          />
         ))}
       </div>
     </div>

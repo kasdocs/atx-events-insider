@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
@@ -47,7 +47,7 @@ type Event = {
   event_date: string;
   location: string;
   event_type: string;
-  vibe?: VibeValue[]; // NEW
+  vibe?: VibeValue[];
   subtype_1?: string;
   subtype_2?: string;
   slug?: string;
@@ -99,8 +99,83 @@ type Subscriber = {
   active: boolean;
 };
 
+type OrganizerInquiry = {
+  id: number | string;
+  created_at?: string;
+
+  name?: string;
+  email?: string;
+  phone?: string;
+
+  event_name?: string;
+  event_date?: string;
+  event_description?: string;
+
+  package_interest?: string;
+  goals_and_questions?: string;
+
+  [key: string]: any;
+};
+
+type FeaturedRow = {
+  id: string; // uuid in featured_events
+  event_id: number;
+  rank: number;
+  is_active: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+  updated_at: string;
+  events?: {
+    id: number;
+    title: string;
+    event_date?: string;
+    location?: string;
+    vibe?: string[];
+    pricing_type?: string;
+    price?: string | null;
+    time?: string | null;
+  } | null;
+};
+
 function formatVibeLabel(value: string) {
   return value.replaceAll('_', ' ');
+}
+
+function formatDateTimeMaybe(value?: string) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function slugify(input: string) {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/['"]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
+function buildEventSlug(title: string, eventDate: string) {
+  const datePart = (eventDate || '').slice(0, 10); // YYYY-MM-DD
+  const base = slugify(title);
+  return datePart ? `${base}-${datePart}` : base;
+}
+
+
+function pickFirst(...values: Array<string | undefined | null>) {
+  for (const v of values) {
+    if (v && String(v).trim().length > 0) return String(v);
+  }
+  return '';
 }
 
 export default function AdminDashboard() {
@@ -143,15 +218,24 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="bg-white rounded-lg shadow-sm border">
-          <div className="border-b flex">
+          <div className="border-b flex flex-wrap">
             <button
               onClick={() => setActiveTab('events')}
               className={`px-6 py-4 font-semibold ${activeTab === 'events' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
             >
               Events
             </button>
+
+            <button
+              onClick={() => setActiveTab('featured')}
+              className={`px-6 py-4 font-semibold ${activeTab === 'featured' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
+            >
+              Featured
+            </button>
+
             <button
               onClick={() => setActiveTab('stories')}
               className={`px-6 py-4 font-semibold ${activeTab === 'stories' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
@@ -170,18 +254,29 @@ export default function AdminDashboard() {
             >
               Submissions
             </button>
+            <button
+              onClick={() => setActiveTab('organizer_inquiries')}
+              className={`px-6 py-4 font-semibold ${activeTab === 'organizer_inquiries' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
+            >
+              Organizer Inquiries
+            </button>
           </div>
+
           <div className="p-6">
             {activeTab === 'events' && <EventsManager />}
+            {activeTab === 'featured' && <FeaturedManager />}
             {activeTab === 'stories' && <StoriesManager />}
             {activeTab === 'subscribers' && <SubscribersManager />}
             {activeTab === 'submissions' && <SubmissionsManager />}
+            {activeTab === 'organizer_inquiries' && <OrganizerInquiriesManager />}
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+/* --------------------------- Events Manager --------------------------- */
 
 function EventsManager() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -322,7 +417,7 @@ function EventForm({ event, onClose }: { event: Event | null; onClose: () => voi
     time: event?.time || '',
     location: event?.location || '',
     event_type: event?.event_type || 'Music',
-    vibe: (event?.vibe || []) as VibeValue[], // NEW
+    vibe: (event?.vibe || []) as VibeValue[],
     subtype_1: event?.subtype_1 || '',
     subtype_2: event?.subtype_2 || '',
     subtype_3: event?.subtype_3 || '',
@@ -394,7 +489,6 @@ function EventForm({ event, onClose }: { event: Event | null; onClose: () => voi
     e.preventDefault();
     setSaving(true);
 
-    // Auto-generate slug from title and date
     const slug = `${formData.title}-${formData.event_date}`
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '')
@@ -447,7 +541,6 @@ function EventForm({ event, onClose }: { event: Event | null; onClose: () => voi
           </select>
         </div>
 
-        {/* NEW: Vibe checklist */}
         <div className="col-span-2">
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-semibold text-gray-700">Vibe (max 3)</label>
@@ -656,6 +749,444 @@ function EventForm({ event, onClose }: { event: Event | null; onClose: () => voi
     </form>
   );
 }
+
+/* --------------------------- Featured Manager --------------------------- */
+
+function FeaturedManager() {
+  const [loading, setLoading] = useState(true);
+  const [featured, setFeatured] = useState<FeaturedRow[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<number | ''>('');
+  const [rank, setRank] = useState<number>(100);
+  const [startsAt, setStartsAt] = useState<string>(''); // datetime-local string
+  const [endsAt, setEndsAt] = useState<string>(''); // datetime-local string
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  const toIsoOrNullFromDateTimeLocal = (v: string) => {
+    if (!v) return null;
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return null;
+    return d.toISOString();
+  };
+
+  const toDateTimeLocalOrEmpty = (iso: string | null) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  };
+
+  const loadAll = async () => {
+    setLoading(true);
+    try {
+      const [featuredRes, eventsRes] = await Promise.all([
+        fetch('/api/admin/featured', { method: 'GET' }),
+        fetch('/api/events', { method: 'GET' }),
+      ]);
+
+      if (!featuredRes.ok) {
+        const err = await featuredRes.json().catch(() => ({}));
+        throw new Error(err?.error || `Failed to load featured (${featuredRes.status})`);
+      }
+
+      if (!eventsRes.ok) {
+        throw new Error(`Failed to load events (${eventsRes.status})`);
+      }
+
+      const featuredJson = await featuredRes.json();
+      const eventsJson = await eventsRes.json();
+
+      const rows = Array.isArray(featuredJson?.featured) ? featuredJson.featured : [];
+      rows.sort((a: FeaturedRow, b: FeaturedRow) => Number(a.rank) - Number(b.rank));
+
+      setFeatured(rows);
+      setEvents(Array.isArray(eventsJson) ? eventsJson : []);
+    } catch (e) {
+      console.error('Featured load error:', e);
+      setFeatured([]);
+      setEvents([]);
+    }
+    setLoading(false);
+  };
+
+  const addFeatured = async () => {
+    if (!selectedEventId) return;
+
+    const payload = {
+      action: 'add',
+      event_id: Number(selectedEventId),
+      rank: Number(rank),
+      is_active: true,
+      starts_at: toIsoOrNullFromDateTimeLocal(startsAt),
+      ends_at: toIsoOrNullFromDateTimeLocal(endsAt),
+    };
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/featured', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(json?.error || 'Failed to add featured event.');
+        setSaving(false);
+        return;
+      }
+
+      await loadAll();
+      setSelectedEventId('');
+      setRank(100);
+      setStartsAt('');
+      setEndsAt('');
+    } catch (e) {
+      console.error('Add featured error:', e);
+      alert('Failed to add featured event.');
+    }
+    setSaving(false);
+  };
+
+  const removeFeatured = async (id: string) => {
+    if (!confirm('Remove this featured event?')) return;
+
+    try {
+      const res = await fetch('/api/admin/featured', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'remove', id }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(json?.error || 'Failed to remove featured event.');
+        return;
+      }
+
+      await loadAll();
+    } catch (e) {
+      console.error('Remove featured error:', e);
+      alert('Failed to remove featured event.');
+    }
+  };
+
+  const toggleActive = async (row: FeaturedRow) => {
+    try {
+      const res = await fetch('/api/admin/featured', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update',
+          id: row.id,
+          is_active: !row.is_active,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(json?.error || 'Failed to update featured event.');
+        return;
+      }
+
+      await loadAll();
+    } catch (e) {
+      console.error('Toggle active error:', e);
+      alert('Failed to update featured event.');
+    }
+  };
+
+  const updateRank = async (row: FeaturedRow, newRank: number) => {
+    try {
+      const res = await fetch('/api/admin/featured', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update',
+          id: row.id,
+          rank: Number(newRank),
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(json?.error || 'Failed to update rank.');
+        return;
+      }
+
+      await loadAll();
+    } catch (e) {
+      console.error('Update rank error:', e);
+      alert('Failed to update rank.');
+    }
+  };
+
+  const updateWindow = async (row: FeaturedRow, nextStartsIso: string | null, nextEndsIso: string | null) => {
+    try {
+      const res = await fetch('/api/admin/featured', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update',
+          id: row.id,
+          starts_at: nextStartsIso,
+          ends_at: nextEndsIso,
+        }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(json?.error || 'Failed to update schedule window.');
+        return;
+      }
+
+      await loadAll();
+    } catch (e) {
+      console.error('Update window error:', e);
+      alert('Failed to update schedule window.');
+    }
+  };
+
+  const moveRow = async (rowId: string, direction: 'up' | 'down') => {
+    const sorted = featured.slice().sort((a, b) => Number(a.rank) - Number(b.rank));
+    const idx = sorted.findIndex((r) => r.id === rowId);
+    if (idx === -1) return;
+
+    const swapWith = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapWith < 0 || swapWith >= sorted.length) return;
+
+    const a = sorted[idx];
+    const b = sorted[swapWith];
+
+    const aRank = Number(a.rank);
+    const bRank = Number(b.rank);
+
+    if (!Number.isFinite(aRank) || !Number.isFinite(bRank)) return;
+
+    await updateRank(a, bRank);
+  };
+
+  if (loading) return <div className="text-gray-600">Loading featured events...</div>;
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">Featured Events</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Add events to the Featured feed shown on the homepage and prioritize them on Browse.
+          </p>
+        </div>
+
+        <button
+          onClick={loadAll}
+          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-semibold mb-2 text-gray-700">Event</label>
+            <select
+              value={selectedEventId}
+              onChange={(e) => setSelectedEventId(e.target.value ? Number(e.target.value) : '')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">Select an event...</option>
+              {events.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">Rank</label>
+            <input
+              type="number"
+              value={rank}
+              onChange={(e) => setRank(Number(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">Starts (optional)</label>
+            <input
+              type="datetime-local"
+              value={startsAt}
+              onChange={(e) => setStartsAt(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold mb-2 text-gray-700">Ends (optional)</label>
+            <input
+              type="datetime-local"
+              value={endsAt}
+              onChange={(e) => setEndsAt(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          <button
+            onClick={addFeatured}
+            disabled={saving || !selectedEventId}
+            className="md:col-span-5 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+          >
+            {saving ? 'Adding...' : '+ Add to Featured'}
+          </button>
+        </div>
+
+        <div className="text-xs text-gray-600 mt-3">
+          Tip: Use Starts/Ends to schedule promos. Leave blank to show all the time.
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Order</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Rank</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Event</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Schedule</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y">
+            {featured
+              .slice()
+              .sort((a, b) => Number(a.rank) - Number(b.rank))
+              .map((row, idx, arr) => {
+                const title = row.events?.title || `Event #${row.event_id}`;
+                const location = row.events?.location || '';
+
+                const startLocal = toDateTimeLocalOrEmpty(row.starts_at);
+                const endLocal = toDateTimeLocalOrEmpty(row.ends_at);
+
+                return (
+                  <tr key={row.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => moveRow(row.id, 'up')}
+                          disabled={idx === 0}
+                          className="px-2 py-1 rounded border border-gray-200 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                          title="Move up"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => moveRow(row.id, 'down')}
+                          disabled={idx === arr.length - 1}
+                          className="px-2 py-1 rounded border border-gray-200 text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                          title="Move down"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3 text-sm">
+                      <input
+                        type="number"
+                        defaultValue={row.rank}
+                        className="w-24 px-2 py-1 border border-gray-300 rounded"
+                        onBlur={(e) => {
+                          const next = Number(e.target.value);
+                          if (!Number.isFinite(next) || next === row.rank) return;
+                          updateRank(row, next);
+                        }}
+                      />
+                    </td>
+
+                    <td className="px-4 py-3 text-sm">
+                      <div className="font-semibold text-gray-900">{title}</div>
+                      {location && <div className="text-xs text-gray-600">{location}</div>}
+                    </td>
+
+                    <td className="px-4 py-3 text-sm">
+                      <div className="grid grid-cols-1 gap-2 min-w-[260px]">
+                        <input
+                          type="datetime-local"
+                          defaultValue={startLocal}
+                          className="w-full px-2 py-1 border border-gray-300 rounded"
+                          onBlur={(e) => {
+                            const nextStart = e.target.value ? new Date(e.target.value).toISOString() : null;
+                            updateWindow(row, nextStart, row.ends_at);
+                          }}
+                        />
+                        <input
+                          type="datetime-local"
+                          defaultValue={endLocal}
+                          className="w-full px-2 py-1 border border-gray-300 rounded"
+                          onBlur={(e) => {
+                            const nextEnd = e.target.value ? new Date(e.target.value).toISOString() : null;
+                            updateWindow(row, row.starts_at, nextEnd);
+                          }}
+                        />
+                        <div className="text-xs text-gray-500">
+                          Leave blank to show always.
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3 text-sm">
+                      {row.is_active ? (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Active</span>
+                      ) : (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">Inactive</span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3 text-sm">
+                      <button
+                        onClick={() => toggleActive(row)}
+                        className="text-blue-600 hover:text-blue-800 mr-3"
+                      >
+                        {row.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => removeFeatured(row.id)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+          </tbody>
+        </table>
+
+        {featured.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            No featured events yet. Add one above.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 /* --------------------------- Stories Manager --------------------------- */
 
@@ -1168,47 +1699,62 @@ function SubmissionsManager() {
   };
 
   const handleApprove = async (submission: any) => {
-    if (!confirm('Approve this event and publish it to the site?')) return;
+  if (!confirm('Approve this event and publish it to the site?')) return;
 
-    try {
-      const { error: eventError } = await supabase
-        .from('events')
-        .insert([{
-          title: submission.title,
-          event_date: submission.event_date,
-          time: submission.time,
-          location: submission.location,
-          event_type: submission.event_type,
-          subtype_1: submission.subtype_1,
-          subtype_2: submission.subtype_2,
-          subtype_3: submission.subtype_3,
-          neighborhood: submission.neighborhood,
-          pricing_type: submission.pricing_type,
-          description: submission.description,
-          image_url: submission.image_url,
-          price: submission.price,
-          instagram_url: submission.instagram_url,
-          insider_tip: submission.insider_tip,
-          vibe: [], // NEW: submissions cannot set vibe, you assign later
-        }]);
-
-      if (eventError) throw eventError;
-
-      const { error: updateError } = await supabase
-        .from('event_submissions')
-        .update({ status: 'approved' })
-        .eq('id', submission.id);
-
-      if (updateError) throw updateError;
-
-      alert('Event approved and published!');
-      fetchSubmissions();
-      setViewingSubmission(null);
-    } catch (error) {
-      console.error('Error approving submission:', error);
-      alert('Failed to approve event');
+  try {
+    // 1. Safety check: prevent double-approval
+    if (submission.status === 'approved' && submission.approved_event_id) {
+      alert('This submission has already been approved.');
+      return;
     }
-  };
+
+    // 2. Insert event into events table
+    const { data: insertedEvent, error: eventError } = await supabase
+      .from('events')
+      .insert([{
+        title: submission.title,
+        event_date: submission.event_date,
+        time: submission.time,
+        location: submission.location,
+        event_type: submission.event_type,
+        subtype_1: submission.subtype_1,
+        subtype_2: submission.subtype_2,
+        subtype_3: submission.subtype_3,
+        neighborhood: submission.neighborhood,
+        pricing_type: submission.pricing_type,
+        description: submission.description,
+        image_url: submission.image_url,
+        price: submission.price,
+        instagram_url: submission.instagram_url,
+        insider_tip: submission.insider_tip,
+        vibe: [], // start empty, admin can edit later
+      }])
+      .select()
+      .single();
+
+    if (eventError) throw eventError;
+
+    // 3. Mark submission as approved and link created event
+    const { error: updateError } = await supabase
+      .from('event_submissions')
+      .update({
+        status: 'approved',
+        approved_event_id: insertedEvent.id,
+        approved_at: new Date().toISOString(),
+      })
+      .eq('id', submission.id);
+
+    if (updateError) throw updateError;
+
+    alert('Event approved and published!');
+    fetchSubmissions();
+    setViewingSubmission(null);
+  } catch (error) {
+    console.error('Error approving submission:', error);
+    alert('Failed to approve event');
+  }
+};
+
 
   const handleReject = async (id: number) => {
     if (!confirm('Reject this event submission?')) return;
@@ -1684,6 +2230,249 @@ function SubmissionEditForm({ submission, onClose, onApprove }: { submission: an
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------ Organizer Inquiries ------------------------ */
+
+function OrganizerInquiriesManager() {
+  const [inquiries, setInquiries] = useState<OrganizerInquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<OrganizerInquiry | null>(null);
+
+  const fetchInquiries = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch('/api/admin/organizer-inquiries', { method: 'GET' });
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          setErrorMsg('Not authenticated. Please log in again.');
+        } else {
+          const text = await res.text();
+          setErrorMsg(`Failed to load inquiries (${res.status}). ${text || ''}`.trim());
+        }
+        setInquiries([]);
+        setLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+      setInquiries(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      setErrorMsg(e?.message || 'Failed to load inquiries.');
+      setInquiries([]);
+    }
+
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchInquiries();
+  }, []);
+
+  const copyToClipboard = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      alert('Copied!');
+    } catch {
+      alert('Could not copy. Try selecting and copying manually.');
+    }
+  };
+
+  if (loading) return <div className="text-gray-600">Loading organizer inquiries...</div>;
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">Organizer Inquiries</h2>
+          <p className="text-sm text-gray-600 mt-1">Total: {inquiries.length}</p>
+        </div>
+        <button
+          onClick={fetchInquiries}
+          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {errorMsg && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+          {errorMsg}
+        </div>
+      )}
+
+      {viewing && (
+        <div className="mb-6 bg-white rounded-lg shadow-lg border p-6">
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">{viewing.name || 'Organizer'}</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Submitted: {formatDateTimeMaybe(viewing.created_at)}
+              </p>
+            </div>
+            <button
+              onClick={() => setViewing(null)}
+              className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Close
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <div>
+              <h4 className="font-semibold text-gray-700 mb-2">Contact</h4>
+              <div className="space-y-2 text-sm text-gray-700">
+                <div>
+                  <strong>Email:</strong>{' '}
+                  {viewing.email ? (
+                    <>
+                      <a className="text-purple-600 hover:underline" href={`mailto:${viewing.email}`}>
+                        {viewing.email}
+                      </a>
+                      <button
+                        onClick={() => copyToClipboard(viewing.email!)}
+                        className="ml-2 text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded"
+                      >
+                        Copy
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-gray-500">None</span>
+                  )}
+                </div>
+
+                <div>
+                  <strong>Phone:</strong>{' '}
+                  {viewing.phone ? viewing.phone : <span className="text-gray-500">None</span>}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-semibold text-gray-700 mb-2">Event</h4>
+              <div className="space-y-2 text-sm text-gray-700">
+                <div>
+                  <strong>Event Name:</strong>{' '}
+                  {viewing.event_name ? viewing.event_name : <span className="text-gray-500">None</span>}
+                </div>
+                <div>
+                  <strong>Event Date:</strong>{' '}
+                  {viewing.event_date ? new Date(viewing.event_date).toLocaleDateString() : <span className="text-gray-500">None</span>}
+                </div>
+                <div>
+                  <strong>Package Interest:</strong>{' '}
+                  {viewing.package_interest ? (
+                    <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                      {viewing.package_interest}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">None</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <h4 className="font-semibold text-gray-700 mb-2">Event Description</h4>
+            <div className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 border rounded-lg p-4">
+              {viewing.event_description || 'No event description provided.'}
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <h4 className="font-semibold text-gray-700 mb-2">Goals and Questions</h4>
+            <div className="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 border rounded-lg p-4">
+              {viewing.goals_and_questions || 'No goals or questions provided.'}
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <details className="text-sm">
+              <summary className="cursor-pointer text-gray-600 hover:text-gray-800">View raw record</summary>
+              <pre className="mt-3 p-4 bg-gray-900 text-gray-100 rounded-lg overflow-auto text-xs">
+{JSON.stringify(viewing, null, 2)}
+              </pre>
+            </details>
+          </div>
+        </div>
+      )}
+
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Organizer</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Package</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Submitted</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody className="divide-y">
+            {inquiries.map((inq) => {
+              const name = inq.name || 'Organizer';
+              const email = inq.email || '';
+              const submitted = formatDateTimeMaybe(inq.created_at);
+
+              return (
+                <tr key={String(inq.id)} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                    <div>{name}</div>
+                    {inq.event_name && <div className="text-xs text-gray-600">{inq.event_name}</div>}
+                  </td>
+
+                  <td className="px-4 py-3 text-sm">
+                    {email ? (
+                      <a className="text-purple-600 hover:underline" href={`mailto:${email}`}>
+                        {email}
+                      </a>
+                    ) : (
+                      <span className="text-gray-500">None</span>
+                    )}
+                  </td>
+
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {inq.package_interest ? (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs">
+                        {inq.package_interest}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">None</span>
+                    )}
+                  </td>
+
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {submitted || <span className="text-gray-500">Unknown</span>}
+                  </td>
+
+                  <td className="px-4 py-3 text-sm">
+                    <button onClick={() => setViewing(inq)} className="text-purple-600 hover:text-purple-800 font-semibold">
+                      View
+                    </button>
+                    {email && (
+                      <button onClick={() => copyToClipboard(email)} className="ml-3 text-gray-600 hover:text-gray-800">
+                        Copy Email
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {inquiries.length === 0 && (
+          <div className="text-center py-8 text-gray-500">No organizer inquiries yet.</div>
+        )}
       </div>
     </div>
   );

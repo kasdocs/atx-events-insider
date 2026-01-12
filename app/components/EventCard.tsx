@@ -4,7 +4,15 @@ import SaveToggleButton from '@/app/components/SaveToggleButton';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
 
-export default function EventCard({ event }: { event: EventRow }) {
+export default function EventCard({
+  event,
+  goingCount,
+  featured = false,
+}: {
+  event: EventRow;
+  goingCount?: number;
+  featured?: boolean;
+}) {
   const formatDate = (dateString: string) => {
     const [year, month, day] = dateString.split('-');
     const date = new Date(Number(year), Number(month) - 1, Number(day));
@@ -66,14 +74,51 @@ export default function EventCard({ event }: { event: EventRow }) {
     return '📍 Location TBD';
   };
 
+  const showGoing = typeof goingCount === 'number' && goingCount > 0;
+
+  // Featured gradient ring that blends into white background
+const featuredRing = featured
+  ? [
+      'relative',
+      "before:content-[''] before:pointer-events-none before:absolute before:-inset-[12px] before:rounded-[22px] before:-z-10",
+      "before:bg-[radial-gradient(closest-side,rgba(123,44,191,0.28),rgba(255,0,110,0.14),transparent_72%)]",
+    ].join(' ')
+  : '';
+
+
+  const featuredBorder = featured ? 'border-purple-200' : 'border-gray-200';
+  const hoverShadow = featured ? 'hover:shadow-xl' : 'hover:shadow-lg';
+
   return (
-    <Link href={`/events/${event.slug}`}>
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer">
+    <Link href={`/events/${event.slug}`} className="block">
+      <div
+        className={[
+          'bg-white border rounded-xl transition-shadow duration-300 cursor-pointer',
+          featuredRing,
+          featuredBorder,
+          hoverShadow,
+        ].join(' ')}
+      >
         {/* Header row: title/location left, save button right */}
         <div className="p-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
+            {featured ? (
+              <div className="mb-2">
+                <span
+                  className="inline-flex items-center px-3 py-1 text-xs font-extrabold rounded-full text-white"
+                  style={{ backgroundColor: '#7B2CBF' }}
+                >
+                  ⭐ Featured
+                </span>
+              </div>
+            ) : null}
+
             <h3 className="font-bold text-lg mb-1 truncate">{event.title}</h3>
             <p className="text-gray-600 text-sm truncate">{locationLine()}</p>
+
+            {showGoing ? (
+              <div className="mt-2 text-xs text-gray-600 font-semibold">👥 {goingCount} going</div>
+            ) : null}
           </div>
 
           {/* Save/Unsave button */}
@@ -84,8 +129,8 @@ export default function EventCard({ event }: { event: EventRow }) {
           ) : null}
         </div>
 
-        {/* Flyer image */}
-        <div className="aspect-square bg-gray-200">
+        {/* Flyer image (keep overflow hidden here, not on the outer card) */}
+        <div className="aspect-square bg-gray-200 overflow-hidden rounded-b-none">
           <img
             src={
               event.image_url ||

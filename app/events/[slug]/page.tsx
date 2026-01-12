@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
 import EventCard from '@/app/components/EventCard';
 import SaveToggleButton from '@/app/components/SaveToggleButton';
+import RSVPWidget from '@/app/components/RSVPWidget';
 import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 import type { Database } from '@/lib/database.types';
 
@@ -24,7 +25,6 @@ export default async function EventDetailPage({
 
   if (error || !event) notFound();
 
-  // Only fetch similar events if we have a non-null event_type
   let similarEvents: EventRow[] = [];
   if (event.event_type) {
     const { data } = await supabase
@@ -67,8 +67,9 @@ export default async function EventDetailPage({
   };
 
   const getPricingColor = () => {
-    if (event.pricing_type === 'Free' || event.pricing_type === 'Free with RSVP')
+    if (event.pricing_type === 'Free' || event.pricing_type === 'Free with RSVP') {
       return '#06D6A0';
+    }
     return '#FF8500';
   };
 
@@ -100,7 +101,6 @@ export default async function EventDetailPage({
                 <p className="text-xl text-gray-600">📍 {event.location ?? 'Location TBD'}</p>
               </div>
 
-              {/* Save button styled like EventCard */}
               <div className="shrink-0 pt-1">
                 <SaveToggleButton eventId={event.id} />
               </div>
@@ -153,6 +153,9 @@ export default async function EventDetailPage({
                       {getPricingText()}
                     </span>
                   </div>
+
+                  {/* RSVP */}
+                  <RSVPWidget eventId={event.id} returnTo={`/events/${slug}`} />
 
                   {vibeTags.length > 0 && (
                     <div>

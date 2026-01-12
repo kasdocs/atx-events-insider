@@ -8,6 +8,40 @@ import type { Database } from '@/lib/database.types';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
 
+type FeaturedApiRow = {
+  id: string;
+  event_id: number;
+  rank: number;
+  is_active: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  events: Pick<
+    EventRow,
+    | 'id'
+    | 'title'
+    | 'slug'
+    | 'event_date'
+    | 'time'
+    | 'location'
+    | 'neighborhood'
+    | 'event_type'
+    | 'vibe'
+    | 'pricing_type'
+    | 'price'
+    | 'image_url'
+    | 'description'
+    | 'instagram_url'
+    | 'insider_tip'
+    | 'subtype_1'
+    | 'subtype_2'
+    | 'subtype_3'
+  > | null;
+};
+
+type FeaturedApiResponse = {
+  featured: FeaturedApiRow[];
+};
+
 export default async function Home() {
   const supabase = createSupabaseServerAnonClient();
 
@@ -35,6 +69,7 @@ export default async function Home() {
 
   const weekend = getNextWeekend();
 
+  // 1) Fetch all upcoming events (used for FYP + Free This Weekend)
   const { data, error } = await supabase
     .from('events')
     .select(
@@ -54,6 +89,74 @@ export default async function Home() {
     const isWeekend = eventDate >= weekend.friday && eventDate <= weekend.sunday;
     return isFreeOrRSVP && isWeekend;
   });
+
+  // 2) Fetch featured events (ranked) from your public API route
+  let featuredEvents: EventRow[] = [];
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
+      ? process.env.NEXT_PUBLIC_SITE_URL
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000';
+
+    const res = await fetch(`${baseUrl}/api/featured`, {
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('Error fetching featured events:', res.status, errText);
+    } else {
+      const json = (await res.json()) as FeaturedApiResponse;
+
+      featuredEvents = (json.featured ?? [])
+        .map((row) => row.events)
+        .filter((e): e is EventRow => !!e);
+    }
+  } catch (e) {
+    console.error('Error fetching featured events:', e);
+  }
+
+  // Optional: remove featured items from Free This Weekend to avoid duplicates
+  const featuredIds = new Set(featuredEvents.map((e) => e.id));
+  const freeEventsDeduped = freeEvents.filter((e) => !featuredIds.has(e.id));
+
+  // --- Bulk fetch "going" counts for all events actually shown on homepage ---
+  // FYPSection uses `events` (it decides what to show internally), so we keep events in the pool.
+  // But we DO NOT need to fetch counts for events that never render on the homepage tiles.
+  // We’ll include:
+  // - all events passed to FYPSection (safe)
+  // - freeEventsDeduped cards
+  // - featuredEvents cards
+  const eventIds = Array.from(
+    new Set(
+      [...events, ...freeEventsDeduped, ...featuredEvents]
+        .map((e) => e.id)
+        .filter((id): id is number => typeof id === 'number')
+    )
+  );
+
+  let goingCountsByEventId: Record<number, number> = {};
+
+  if (eventIds.length > 0) {
+    const { data: rsvpRows, error: rsvpErr } = await supabase
+      .from('event_rsvps')
+      .select('event_id')
+      .in('event_id', eventIds)
+      .eq('status', 'going');
+
+    if (rsvpErr) {
+      console.error('Error fetching going counts:', rsvpErr);
+    } else {
+      const counts: Record<number, number> = {};
+      for (const row of rsvpRows ?? []) {
+        const id = (row as { event_id: number | null }).event_id;
+        if (typeof id === 'number') counts[id] = (counts[id] ?? 0) + 1;
+      }
+      goingCountsByEventId = counts;
+    }
+  }
+  // --------------------------------------------------------------------
 
   return (
     <div className="min-h-screen bg-white">
@@ -76,36 +179,57 @@ export default async function Home() {
           {/* Main Content - 70% */}
           <div className="lg:col-span-8">
             {/* For You Section */}
-            <FYPSection events={events} />
+            <FYPSection events={events} goingCountsByEventId={goingCountsByEventId} />
 
             {/* Free This Weekend Section */}
             <h2 className="text-3xl font-bold mb-8" style={{ color: '#FF006E' }}>
               🎟️ Free This Weekend
             </h2>
 
-            {freeEvents.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-                {freeEvents.map((event) => (
-                  <EventCard key={event.id} event={event} />
-                ))}
+            {freeEventsDeduped.length > 0 ? (
+              <div className="mb-12">
+                {/* Mobile: swipeable row | Desktop: 2-col grid */}
+                <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:grid md:grid-cols-2">
+                  {freeEventsDeduped.map((event) => (
+                    <div key={event.id} className="snap-start min-w-[85%] md:min-w-0">
+                      <EventCard
+                        event={event}
+                        goingCount={
+                          typeof event.id === 'number' ? goingCountsByEventId[event.id] ?? 0 : 0
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <p className="text-gray-600 mb-12">No free events found. Check back soon!</p>
             )}
 
-            {/* All Events Section */}
+            {/* Featured Events Section */}
             <h2 className="text-3xl font-bold mb-8" style={{ color: '#7B2CBF' }}>
               🔥 Featured Events
             </h2>
 
-            {events.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {events.map((event) => (
-                  <EventCard key={event.id} event={event} />
-                ))}
-              </div>
+            {featuredEvents.length > 0 ? (
+              <>
+                {/* Mobile: swipeable row | Desktop: 2-col grid */}
+                <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:grid md:grid-cols-2">
+                  {featuredEvents.map((event) => (
+                    <div key={`featured-${event.id}`} className="snap-start min-w-[85%] md:min-w-0">
+                      <EventCard
+                        event={event}
+                        goingCount={
+                          typeof event.id === 'number' ? goingCountsByEventId[event.id] ?? 0 : 0
+                        }
+                        featured
+                      />
+                    </div>
+                  ))}
+                </div>
+              </>
             ) : (
-              <p className="text-gray-600">No events found. Check back soon!</p>
+              <p className="text-gray-600">No featured events yet. Add some in the admin dashboard.</p>
             )}
           </div>
 

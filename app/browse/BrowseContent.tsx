@@ -11,12 +11,32 @@ type EventRow = Database['public']['Tables']['events']['Row'];
 
 type CostFilter = 'all' | 'free' | 'free_rsvp' | 'paid';
 
+type FeaturedApiRow = {
+  id: string;
+  event_id: number;
+  rank: number;
+  is_active: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  events: Pick<EventRow, 'id'> | null;
+};
+
+type FeaturedApiResponse = {
+  featured: FeaturedApiRow[];
+};
+
 export default function BrowseContent() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const searchParams = useSearchParams();
 
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ✅ Going counts by event id
+  const [goingCountsByEventId, setGoingCountsByEventId] = useState<Record<number, number>>({});
+
+  // ✅ Featured event ids
+  const [featuredIds, setFeaturedIds] = useState<Set<number>>(new Set());
 
   // Filters
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -50,15 +70,45 @@ export default function BrowseContent() {
     if (date) setSelectedDate(date);
   }, [searchParams]);
 
+  // ✅ Fetch featured ids (public route)
   useEffect(() => {
     let cancelled = false;
 
-    const fetchEvents = async () => {
+    const fetchFeaturedIds = async () => {
+      try {
+        const res = await fetch('/api/featured', { cache: 'no-store' });
+        if (!res.ok) return;
+
+        const json = (await res.json()) as FeaturedApiResponse;
+        const ids = (json.featured ?? [])
+          .map((row) => row.events?.id)
+          .filter((id): id is number => typeof id === 'number');
+
+        if (!cancelled) setFeaturedIds(new Set(ids));
+      } catch {
+        // silent fail - browse still works
+      }
+    };
+
+    fetchFeaturedIds();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchEventsAndCounts = async () => {
       setLoading(true);
+
+      const today = new Date().toISOString().split('T')[0];
 
       const { data, error } = await supabase
         .from('events')
         .select('*')
+        .gte('event_date', today) // ✅ hide past events
         .order('event_date', { ascending: true })
         .returns<EventRow[]>();
 
@@ -67,14 +117,49 @@ export default function BrowseContent() {
       if (error) {
         console.error('Error fetching events:', error);
         setEvents([]);
+        setGoingCountsByEventId({});
+        setLoading(false);
+        return;
+      }
+
+      const eventRows = data ?? [];
+      setEvents(eventRows);
+
+      const ids = eventRows
+        .map((e) => e.id)
+        .filter((id): id is number => typeof id === 'number');
+
+      if (ids.length === 0) {
+        setGoingCountsByEventId({});
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Bulk fetch "going" rows and count client-side
+      const { data: rsvpRows, error: rsvpErr } = await supabase
+        .from('event_rsvps')
+        .select('event_id')
+        .in('event_id', ids)
+        .eq('status', 'going');
+
+      if (cancelled) return;
+
+      if (rsvpErr) {
+        console.error('Error fetching going counts:', rsvpErr);
+        setGoingCountsByEventId({});
       } else {
-        setEvents(data ?? []);
+        const counts: Record<number, number> = {};
+        for (const row of rsvpRows ?? []) {
+          const id = (row as { event_id: number | null }).event_id;
+          if (typeof id === 'number') counts[id] = (counts[id] ?? 0) + 1;
+        }
+        setGoingCountsByEventId(counts);
       }
 
       setLoading(false);
     };
 
-    fetchEvents();
+    fetchEventsAndCounts();
 
     return () => {
       cancelled = true;
@@ -144,6 +229,33 @@ export default function BrowseContent() {
     setSelectedNeighborhood('all');
     setSelectedType('all');
     setSelectedCost('all');
+  };
+
+  const timeToMinutes = (t?: string | null) => {
+    if (!t) return 24 * 60 + 1;
+
+    const s = t.trim();
+
+    // 24h or "HH:MM:SS"
+    const m24 = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (m24) {
+      const hh = Number(m24[1]);
+      const mm = Number(m24[2]);
+      return hh * 60 + mm;
+    }
+
+    // "h:mm AM/PM"
+    const m12 = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (m12) {
+      let hh = Number(m12[1]);
+      const mm = Number(m12[2]);
+      const ap = m12[3].toUpperCase();
+      if (ap === 'PM' && hh !== 12) hh += 12;
+      if (ap === 'AM' && hh === 12) hh = 0;
+      return hh * 60 + mm;
+    }
+
+    return 24 * 60 + 1;
   };
 
   return (
@@ -313,25 +425,59 @@ export default function BrowseContent() {
               <div className="text-gray-600">No events match your filters.</div>
             ) : (
               <div className="space-y-10">
-                {dateKeys.map((dateKey) => (
-                  <section key={dateKey} className="space-y-6">
-                    {/* Sticky Date Header */}
-                    <div className="sticky top-16 z-20 bg-white/95 backdrop-blur border-b border-gray-200">
-                      <div className="py-4">
-                        <h2 className="text-3xl font-bold" style={{ color: '#7B2CBF' }}>
-                          {formatDateHeading(dateKey)}
-                        </h2>
-                      </div>
-                    </div>
+                {dateKeys.map((dateKey) => {
+                  const eventsForDate = groupedByDate[dateKey] ?? [];
 
-                    {/* Events for this date */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {groupedByDate[dateKey].map((event) => (
-                        <EventCard key={event.id} event={event} />
-                      ))}
-                    </div>
-                  </section>
-                ))}
+                  const sortedForDate = eventsForDate.slice().sort((a, b) => {
+                    const aFeat = typeof a.id === 'number' && featuredIds.has(a.id) ? 1 : 0;
+                    const bFeat = typeof b.id === 'number' && featuredIds.has(b.id) ? 1 : 0;
+
+                    // featured first
+                    if (aFeat !== bFeat) return bFeat - aFeat;
+
+                    // then sort by time
+                    const aTime = timeToMinutes(a.time);
+                    const bTime = timeToMinutes(b.time);
+                    if (aTime !== bTime) return aTime - bTime;
+
+                    // stable fallback
+                    return (a.title ?? '').localeCompare(b.title ?? '');
+                  });
+
+                  return (
+                    <section key={dateKey} className="space-y-6">
+                      {/* Sticky Date Header */}
+                      <div className="sticky top-16 z-20 bg-white/95 backdrop-blur border-b border-gray-200">
+                        <div className="py-4">
+                          <h2 className="text-3xl font-bold" style={{ color: '#7B2CBF' }}>
+                            {formatDateHeading(dateKey)}
+                          </h2>
+                        </div>
+                      </div>
+
+                      {/* Events for this date */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {sortedForDate.map((event) => {
+                          const isFeatured =
+                            typeof event.id === 'number' ? featuredIds.has(event.id) : false;
+
+                          return (
+                            <EventCard
+                              key={event.id}
+                              event={event}
+                              goingCount={
+                                typeof event.id === 'number'
+                                  ? (goingCountsByEventId[event.id] ?? 0)
+                                  : 0
+                              }
+                              featured={isFeatured}
+                            />
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
               </div>
             )}
           </>

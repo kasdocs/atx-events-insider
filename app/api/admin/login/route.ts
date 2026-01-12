@@ -5,15 +5,16 @@ export async function POST(req: Request) {
   const body = await req.json();
   const password = body.password;
 
-  console.log('Password received:', password);
-  console.log('Password expected:', process.env.ADMIN_PASSWORD);
-
   if (password === process.env.ADMIN_PASSWORD) {
     const cookieStore = await cookies();
-    cookieStore.set('admin-authenticated', 'true', {
-      httpOnly: true,
-      maxAge: 86400,
-    });
+cookieStore.set('admin-authenticated', 'true', {
+  httpOnly: true,
+  maxAge: 86400,
+  sameSite: 'lax',
+  secure: process.env.NODE_ENV === 'production',
+  path: '/',
+});
+
     return NextResponse.json({ success: true });
   }
 
