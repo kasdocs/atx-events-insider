@@ -1,7 +1,7 @@
-export const dynamic = 'force-dynamic';
-
 import Navbar from '@/app/components/Navbar';
 import OrganizerInquiryForm from '../components/OrganizerInquiryForm';
+
+export const dynamic = 'force-dynamic';
 
 export default function ForOrganizersPage() {
   return (
