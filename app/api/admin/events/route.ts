@@ -44,29 +44,49 @@ export async function POST(req: Request) {
 
     const raw = (await req.json()) as Partial<EventInsert>;
 
-    // Only allow fields that exist on the table (prevents random form keys)
-    const payload: EventInsert = {
-      title: raw.title ?? null,
-      slug: raw.slug ?? null,
-      event_date: raw.event_date ?? null,
-      time: raw.time ?? null,
-      location: raw.location ?? null,
-      instagram_url: raw.instagram_url ?? null,
-      description: raw.description ?? null,
-      event_type: raw.event_type ?? null,
-      neighborhood: raw.neighborhood ?? null,
-      pricing_type: raw.pricing_type ?? null,
-      price: raw.price ?? null,
-      insider_tip: raw.insider_tip ?? null,
-      image_url: raw.image_url ?? null,
-      vibe: (Array.isArray(raw.vibe) ? raw.vibe : null) as any, // keep if your column is text[]
+    const asString = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    const asOptionalString = (v: unknown) => {
+      const s = asString(v);
+      return s.length ? s : undefined;
     };
 
-    const { data, error } = await supabase
-      .from('events')
-      .insert(payload)
-      .select('id')
-      .single();
+    // Required fields (these were the ones TS complained about being string-only)
+    const title = asString(raw.title);
+    const event_date = asString(raw.event_date);
+    const location = asString(raw.location);
+    const event_type = asString(raw.event_type);
+    const pricing_type = asString(raw.pricing_type);
+
+    if (!title) return NextResponse.json({ error: 'Title is required.' }, { status: 400 });
+    if (!event_date) return NextResponse.json({ error: 'Event date is required.' }, { status: 400 });
+    if (!location) return NextResponse.json({ error: 'Location is required.' }, { status: 400 });
+    if (!event_type) return NextResponse.json({ error: 'Event type is required.' }, { status: 400 });
+    if (!pricing_type) return NextResponse.json({ error: 'Pricing type is required.' }, { status: 400 });
+
+    const payload: EventInsert = {
+      title,
+      event_date,
+      location,
+      event_type,
+      pricing_type,
+
+      // Optional strings (use undefined, not null)
+      slug: asOptionalString(raw.slug),
+      time: asOptionalString(raw.time),
+      instagram_url: asOptionalString(raw.instagram_url),
+      description: asOptionalString(raw.description),
+      neighborhood: asOptionalString(raw.neighborhood),
+      insider_tip: asOptionalString(raw.insider_tip),
+      image_url: asOptionalString(raw.image_url),
+
+      // Optional number
+      price: typeof raw.price === 'number' ? raw.price : undefined,
+
+      // text[] (keep only if your DB column is text[])
+      vibe: Array.isArray(raw.vibe) ? (raw.vibe as any) : undefined,
+    };
+
+    const { data, error } = await supabase.from('events').insert(payload).select('id').single();
 
     if (error) {
       console.error('POST /api/admin/events Supabase error:', error);
