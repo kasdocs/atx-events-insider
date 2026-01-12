@@ -17,6 +17,15 @@ export default function StoriesPage() {
     let cancelled = false;
 
     const fetchStories = async () => {
+      // ✅ Guard: if env vars missing, don't try to query
+      if (!supabase) {
+        if (!cancelled) {
+          setStories([]);
+          setLoading(false);
+        }
+        return;
+      }
+
       setLoading(true);
 
       const { data, error } = await supabase
@@ -65,9 +74,7 @@ export default function StoriesPage() {
           <h1 className="text-5xl font-bold mb-4" style={{ color: '#7B2CBF' }}>
             Stories
           </h1>
-          <p className="text-xl text-gray-600">
-            Behind the scenes of Austin&apos;s best events
-          </p>
+          <p className="text-xl text-gray-600">Behind the scenes of Austin&apos;s best events</p>
         </div>
       </div>
 
@@ -116,17 +123,11 @@ export default function StoriesPage() {
                         {story.title ?? 'Untitled'}
                       </h2>
 
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                        {story.excerpt ?? ''}
-                      </p>
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">{story.excerpt ?? ''}</p>
 
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">
-                          By {story.author ?? 'Unknown'}
-                        </span>
-                        <span className="text-gray-400">
-                          {formatDate(story.published_date)}
-                        </span>
+                        <span className="text-gray-500">By {story.author ?? 'Unknown'}</span>
+                        <span className="text-gray-400">{formatDate(story.published_date)}</span>
                       </div>
                     </div>
                   </article>

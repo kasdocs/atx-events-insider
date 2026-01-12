@@ -21,6 +21,13 @@ export default function NewsletterSignup({ source = 'homepage' }: { source?: str
       return;
     }
 
+    // ✅ Guard: supabase can be null if env vars are missing
+    if (!supabase) {
+      setStatus('error');
+      setMessage('Newsletter signup is not configured (missing Supabase env vars).');
+      return;
+    }
+
     setStatus('loading');
 
     const { data: existing, error: checkError } = await supabase
@@ -48,6 +55,7 @@ export default function NewsletterSignup({ source = 'homepage' }: { source?: str
       return;
     }
 
+    // ConvertKit sync is best-effort (subscriber already saved)
     try {
       const ckResponse = await fetch('/api/convertkit/sync', {
         method: 'POST',
@@ -64,7 +72,7 @@ export default function NewsletterSignup({ source = 'homepage' }: { source?: str
     setMessage('🎉 Thanks for subscribing! Check your inbox for updates.');
     setEmail('');
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       setStatus('idle');
       setMessage('');
     }, 5000);
@@ -95,12 +103,20 @@ export default function NewsletterSignup({ source = 'homepage' }: { source?: str
           className="w-full py-3 rounded-lg font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ backgroundColor: '#FF006E' }}
         >
-          {status === 'loading' ? 'Subscribing...' : status === 'success' ? '✓ Subscribed!' : 'Subscribe'}
+          {status === 'loading'
+            ? 'Subscribing...'
+            : status === 'success'
+              ? '✓ Subscribed!'
+              : 'Subscribe'}
         </button>
       </form>
 
       {message && (
-        <p className={`text-xs mt-3 text-center font-semibold ${status === 'error' ? 'text-red-600' : 'text-green-600'}`}>
+        <p
+          className={`text-xs mt-3 text-center font-semibold ${
+            status === 'error' ? 'text-red-600' : 'text-green-600'
+          }`}
+        >
           {message}
         </p>
       )}

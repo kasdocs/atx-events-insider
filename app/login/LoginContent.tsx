@@ -18,9 +18,21 @@ export default function LoginContent() {
   const onLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+
+    // ✅ Guard: TS + runtime safety if env vars are missing
+    if (!supabase) {
+      setErrorMsg('Auth is not configured. Missing Supabase env vars.');
+      return;
+    }
+
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const cleanEmail = email.trim().toLowerCase();
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password,
+    });
 
     setLoading(false);
 
@@ -49,6 +61,8 @@ export default function LoginContent() {
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               required
+              autoComplete="email"
+              inputMode="email"
             />
           </div>
 
@@ -60,6 +74,7 @@ export default function LoginContent() {
               onChange={(e) => setPassword(e.target.value)}
               type="password"
               required
+              autoComplete="current-password"
             />
           </div>
 
@@ -67,7 +82,7 @@ export default function LoginContent() {
 
           <button
             disabled={loading}
-            className="w-full py-3 rounded-lg text-white font-semibold hover:opacity-90"
+            className="w-full py-3 rounded-lg text-white font-semibold hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: '#7B2CBF' }}
           >
             {loading ? 'Logging in...' : 'Log in'}

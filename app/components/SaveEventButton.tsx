@@ -17,14 +17,24 @@ export default function SaveEventButton({ eventId }: { eventId: number }) {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    // ✅ Guard for TS + safety if env vars are missing
+    if (!supabase) {
+      setUserId(null);
+      setIsSaved(false);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     const refresh = async (uid: string | null) => {
       setUserId(uid);
 
       if (!uid) {
-        setIsSaved(false);
-        setLoading(false);
+        if (!cancelled) {
+          setIsSaved(false);
+          setLoading(false);
+        }
         return;
       }
 
@@ -46,6 +56,7 @@ export default function SaveEventButton({ eventId }: { eventId: number }) {
 
     const init = async () => {
       setLoading(true);
+
       const { data, error } = await supabase.auth.getUser();
       if (error) console.error('auth.getUser error:', error);
 
@@ -55,7 +66,6 @@ export default function SaveEventButton({ eventId }: { eventId: number }) {
     init();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      // session can be null on logout
       refresh(session?.user?.id ?? null);
     });
 
@@ -67,6 +77,12 @@ export default function SaveEventButton({ eventId }: { eventId: number }) {
 
   const onClick = async () => {
     if (loading) return;
+
+    // ✅ Guard for TS + safety if env vars are missing
+    if (!supabase) {
+      router.push(`/login?returnTo=${encodeURIComponent(pathname)}`);
+      return;
+    }
 
     if (!userId) {
       router.push(`/login?returnTo=${encodeURIComponent(pathname)}`);
@@ -85,9 +101,12 @@ export default function SaveEventButton({ eventId }: { eventId: number }) {
       if (error) console.error('saved_events delete error:', error);
       else setIsSaved(false);
     } else {
-      const { error } = await supabase
-        .from('saved_events')
-        .insert({ user_id: userId, event_id: eventId } satisfies Database['public']['Tables']['saved_events']['Insert']);
+      const payload: Database['public']['Tables']['saved_events']['Insert'] = {
+        user_id: userId,
+        event_id: eventId,
+      };
+
+      const { error } = await supabase.from('saved_events').insert(payload);
 
       if (error) console.error('saved_events insert error:', error);
       else setIsSaved(true);

@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import type { Database } from '@/lib/database.types';
+
+type SavedRow = Database['public']['Tables']['saved_events']['Row'];
 
 export default function SaveToggleButton({ eventId }: { eventId: number }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -12,13 +15,23 @@ export default function SaveToggleButton({ eventId }: { eventId: number }) {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    // ✅ Guard for TS + safety if env vars are missing
+    if (!supabase) {
+      setUserId(null);
+      setIsSaved(false);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     const load = async () => {
       setLoading(true);
 
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData.user;
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr) console.error('SaveToggleButton auth.getUser error:', userErr);
+
+      const user = userData.user ?? null;
 
       if (!user) {
         if (!cancelled) {
@@ -36,7 +49,8 @@ export default function SaveToggleButton({ eventId }: { eventId: number }) {
         .select('id')
         .eq('user_id', user.id)
         .eq('event_id', eventId)
-        .maybeSingle();
+        .maybeSingle()
+        .returns<Pick<SavedRow, 'id'> | null>();
 
       if (error) console.error('SaveToggleButton check error:', error);
 
@@ -60,6 +74,13 @@ export default function SaveToggleButton({ eventId }: { eventId: number }) {
 
     if (saving) return;
 
+    // ✅ Guard for TS + safety if env vars are missing
+    if (!supabase) {
+      const returnTo = encodeURIComponent(window.location.pathname);
+      window.location.href = `/login?returnTo=${returnTo}`;
+      return;
+    }
+
     // If logged out, send them to login and bring them back
     if (!userId) {
       const returnTo = encodeURIComponent(window.location.pathname);
@@ -82,10 +103,12 @@ export default function SaveToggleButton({ eventId }: { eventId: number }) {
         setIsSaved(false);
       }
     } else {
-      const { error } = await supabase.from('saved_events').insert({
+      const payload: Database['public']['Tables']['saved_events']['Insert'] = {
         user_id: userId,
         event_id: eventId,
-      });
+      };
+
+      const { error } = await supabase.from('saved_events').insert(payload);
 
       if (error) {
         console.error('save error:', error);
@@ -106,9 +129,7 @@ export default function SaveToggleButton({ eventId }: { eventId: number }) {
       onClick={onToggle}
       aria-label={isSaved ? 'Unsave event' : 'Save event'}
       className={`h-10 w-10 rounded-full flex items-center justify-center shadow-sm border transition-opacity ${
-        isSaved
-          ? 'bg-white border-purple-200'
-          : 'bg-white/95 border-gray-200 hover:opacity-90'
+        isSaved ? 'bg-white border-purple-200' : 'bg-white/95 border-gray-200 hover:opacity-90'
       } ${saving ? 'opacity-60' : ''}`}
       title={isSaved ? 'Saved' : 'Save'}
     >
