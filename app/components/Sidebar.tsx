@@ -1,9 +1,8 @@
-'use client';
-
-import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import NewsletterSignup from './NewsletterSignup';
-import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import DatePickerJump from '@/app/components/DatePickerJump';
+
+import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 import type { Database } from '@/lib/database.types';
 
 type StoryRow = Database['public']['Tables']['stories']['Row'];
@@ -33,55 +32,35 @@ function getNextWeekendRange() {
   return { fri, sun };
 }
 
-export default function Sidebar() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const [recentStories, setRecentStories] = useState<StoryRow[]>([]);
-  const [storiesLoading, setStoriesLoading] = useState(true);
+function formatDate(dateString: string | null) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
 
-  useEffect(() => {
-    let cancelled = false;
+export default async function Sidebar() {
+  // Fetch stories server-side (no browser client, no useEffect)
+  const supabase = createSupabaseServerAnonClient();
 
-    const fetchRecentStories = async () => {
-      setStoriesLoading(true);
+  const { data, error } = await supabase
+    .from('stories')
+    .select(
+      'id, created_at, title, slug, content, cover_image, author, published_date, event_id, featured, excerpt, story_type'
+    )
+    .order('published_date', { ascending: false })
+    .limit(3);
 
-      const { data, error } = await supabase
-        .from('stories')
-        .select(
-          'id, created_at, title, slug, content, cover_image, author, published_date, event_id, featured, excerpt, story_type'
-        )
-        .order('published_date', { ascending: false })
-        .limit(3)
-        .returns<StoryRow[]>();
+  const recentStories = ((data ?? []) as StoryRow[]) ?? [];
+  const storiesLoading = false; // server-rendered
 
-      if (cancelled) return;
-
-      if (error) {
-        console.error('Error fetching stories:', error);
-        setRecentStories([]);
-        setStoriesLoading(false);
-        return;
-      }
-
-      setRecentStories(data ?? []);
-      setStoriesLoading(false);
-    };
-
-    fetchRecentStories();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [supabase]);
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  if (error) {
+    // Don’t crash homepage if stories query fails
+    console.error('Error fetching stories:', error);
+  }
 
   const today = new Date();
   const tomorrow = new Date(Date.now() + 86400000);
@@ -217,19 +196,12 @@ export default function Sidebar() {
           </Link>
         </div>
 
+        {/* Client-only date input */}
         <div className="mt-4 pt-4 border-t border-gray-200">
           <label className="block text-sm font-semibold mb-2" style={{ color: '#7B2CBF' }}>
             Or pick a date:
           </label>
-          <input
-            type="date"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            onChange={(e) => {
-              if (e.target.value) {
-                window.location.href = `/browse?date=${e.target.value}`;
-              }
-            }}
-          />
+          <DatePickerJump />
         </div>
 
         <Link
@@ -243,7 +215,7 @@ export default function Sidebar() {
       {/* Newsletter Signup */}
       <NewsletterSignup source="homepage-sidebar" />
 
-      {/* Organizer CTA (replaces Submit Event CTA) */}
+      {/* Organizer CTA */}
       <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
         <h3 className="font-bold text-lg mb-2" style={{ color: '#7B2CBF' }}>
           🎉 Have an Event?

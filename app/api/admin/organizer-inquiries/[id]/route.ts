@@ -1,23 +1,24 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/database.types';
 
-// Server-only: use service role if available (recommended for admin writes with RLS on)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function createAdminSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY;
 
-const VALID_STATUSES = new Set([
-  'new',
-  'contacted',
-  'in_progress',
-  'booked',
-  'closed',
-]);
+  if (!url) throw new Error('Missing Supabase URL env var');
+  if (!key) throw new Error('Missing Supabase key env var');
+
+  return createClient<Database>(url, key, { auth: { persistSession: false } });
+}
+
+const VALID_STATUSES = new Set(['new', 'contacted', 'in_progress', 'booked', 'closed']);
 
 function isUuid(value: string) {
-  // UUID v1–v5
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value
   );
@@ -35,7 +36,6 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // IMPORTANT: Next may provide params as a Promise in some setups
     const { id } = await (ctx as any).params;
 
     if (!id || typeof id !== 'string' || !isUuid(id)) {
@@ -46,11 +46,10 @@ export async function PATCH(
     const status = body?.status as string | undefined;
 
     if (!status || typeof status !== 'string' || !VALID_STATUSES.has(status)) {
-      return NextResponse.json(
-        { error: 'Invalid status' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
+
+    const supabase = createAdminSupabase();
 
     const { data, error } = await supabase
       .from('organizer_inquiries')
@@ -70,6 +69,9 @@ export async function PATCH(
     return NextResponse.json(data);
   } catch (err) {
     console.error('Organizer inquiries PATCH API error:', err);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Server error' },
+      { status: 500 }
+    );
   }
 }
