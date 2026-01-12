@@ -1,15 +1,27 @@
-'use client';
-
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/database.types';
 
-export function createSupabaseBrowserClient(): SupabaseClient<Database> | null {
+let browserClient: SupabaseClient | null = null;
+
+export function createSupabaseBrowserClient(): SupabaseClient {
+  // IMPORTANT: must use NEXT_PUBLIC_ vars in client code
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Never throw in the browser client factory.
-  // If env is missing, return null so the UI can degrade gracefully.
-  if (!url || !anonKey) return null;
+  if (!url || !anonKey) {
+    throw new Error(
+      'Supabase is not configured (missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)'
+    );
+  }
 
-  return createClient<Database>(url, anonKey);
+  if (!browserClient) {
+    browserClient = createClient(url, anonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
+  }
+
+  return browserClient;
 }

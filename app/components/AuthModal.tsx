@@ -9,7 +9,14 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+ const supabase = useMemo(() => {
+  try {
+    return createSupabaseBrowserClient();
+  } catch {
+    return null;
+  }
+}, []);
+
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');

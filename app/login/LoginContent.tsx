@@ -9,7 +9,14 @@ export default function LoginContent() {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo') || '/';
 
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const supabase = useMemo(() => {
+  try {
+    return createSupabaseBrowserClient();
+  } catch {
+    return null;
+  }
+}, []);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
