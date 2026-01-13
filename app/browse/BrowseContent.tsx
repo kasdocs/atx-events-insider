@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
 import EventCard from '@/app/components/EventCard';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import type { Database } from '@/lib/database.types';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
 
@@ -26,8 +27,10 @@ type FeaturedApiResponse = {
 };
 
 export default function BrowseContent() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const searchParams = useSearchParams();
+
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  const [supabaseError, setSupabaseError] = useState<string | null>(null);
 
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +50,22 @@ export default function BrowseContent() {
   // Mobile filter collapse state
   const [isMobile, setIsMobile] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
+
+  // Create Supabase browser client only after mount (browser-only).
+  useEffect(() => {
+    try {
+      const client = createSupabaseBrowserClient();
+      setSupabase(client);
+      setSupabaseError(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Supabase is not configured.';
+      setSupabase(null);
+      setSupabaseError(msg);
+      setEvents([]);
+      setGoingCountsByEventId({});
+      setLoading(false);
+    }
+  }, []);
 
   // Detect mobile and set default collapse behavior
   useEffect(() => {
@@ -96,13 +115,7 @@ export default function BrowseContent() {
 
   // Fetch events + going counts
   useEffect(() => {
-    if (!supabase) {
-      // env missing, don't crash and don't loop forever
-      setEvents([]);
-      setGoingCountsByEventId({});
-      setLoading(false);
-      return;
-    }
+    if (!supabase) return;
 
     let cancelled = false;
 
@@ -409,9 +422,9 @@ export default function BrowseContent() {
 
       {/* Results */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {!supabase && (
+        {supabaseError && (
           <div className="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-900">
-            Supabase is not configured (missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY).
+            {supabaseError}
           </div>
         )}
 

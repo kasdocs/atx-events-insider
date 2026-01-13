@@ -3,7 +3,13 @@ import LoginContent from './LoginContent';
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center px-4">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center px-4">
+          Loading...
+        </div>
+      }
+    >
       <LoginContent />
     </Suspense>
   );

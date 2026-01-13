@@ -30,74 +30,137 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
+async function safeReadErrorMessage(res: Response): Promise<string> {
+  // Try JSON first
+  try {
+    const data = (await res.json()) as unknown;
+    if (data && typeof data === 'object') {
+      const maybeMsg =
+        (data as { error?: unknown; message?: unknown }).error ??
+        (data as { message?: unknown }).message;
+
+      if (typeof maybeMsg === 'string' && maybeMsg.trim()) return maybeMsg;
+    }
+  } catch {
+    // ignore JSON parse errors
+  }
+
+  // Try text fallback
+  try {
+    const text = await res.text();
+    if (text && text.trim()) return text.trim();
+  } catch {
+    // ignore
+  }
+
+  return `Request failed (${res.status})`;
+}
+
 export default function OrganizerInquiryForm() {
   const [form, setForm] = useState<FormState>(initialState);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const onChange = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setForm((prev) => ({ ...prev, [key]: e.target.value }));
-  };
+  const onChange =
+    (key: keyof FormState) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+    };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!form.name.trim()) return setError('Please enter your name.');
-    if (!form.email.trim() || !isValidEmail(form.email)) return setError('Please enter a valid email address.');
-    if (!form.package_interest) return setError('Please select what you’re interested in.');
+    if (submitting) return;
 
-const res = await fetch('/api/organizer-inquiry', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify(form),
-});
+    if (!form.name.trim()) {
+      setError('Please enter your name.');
+      return;
+    }
 
-if (!res.ok) {
-  setError('Something went wrong. Please try again.');
-  return;
-}
+    if (!form.email.trim() || !isValidEmail(form.email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
 
-setSubmitted(true);
+    if (!form.package_interest) {
+      setError('Please select what you’re interested in.');
+      return;
+    }
 
+    setSubmitting(true);
+
+    try {
+      const payload: FormState = {
+        ...form,
+        email: form.email.trim().toLowerCase(),
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        event_name: form.event_name.trim(),
+        event_description: form.event_description.trim(),
+        goals_and_questions: form.goals_and_questions.trim(),
+      };
+
+      const res = await fetch('/api/organizer-inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const msg = await safeReadErrorMessage(res);
+        setError(msg || 'Something went wrong. Please try again.');
+        return;
+      }
+
+      setSubmitted(true);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network error. Please try again.';
+      setError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
-  return (
-    <div className="rounded-lg border p-6">
-      <h3 className="text-lg font-semibold mb-2">You’re in.</h3>
-      <p className="text-gray-600">
-        We just sent the Organizer Guide to <span className="font-medium text-gray-900">{form.email}</span>.
-      </p>
+    const displayEmail = form.email.trim().toLowerCase();
 
-      <div className="mt-4 rounded-md bg-gray-50 border p-4 text-sm text-gray-700">
-        <p className="font-medium mb-1">If you don’t see it:</p>
-        <ul className="list-disc list-inside space-y-1 text-gray-600">
-          <li>Check Spam or Promotions</li>
-          <li>Search your inbox for “Organizer Guide”</li>
-          <li>Wait 2 to 3 minutes and refresh</li>
-        </ul>
+    return (
+      <div className="rounded-lg border p-6">
+        <h3 className="text-lg font-semibold mb-2">You’re in.</h3>
+        <p className="text-gray-600">
+          We just sent the Organizer Guide to{' '}
+          <span className="font-medium text-gray-900">{displayEmail}</span>.
+        </p>
+
+        <div className="mt-4 rounded-md bg-gray-50 border p-4 text-sm text-gray-700">
+          <p className="font-medium mb-1">If you don’t see it:</p>
+          <ul className="list-disc list-inside space-y-1 text-gray-600">
+            <li>Check Spam or Promotions</li>
+            <li>Search your inbox for “Organizer Guide”</li>
+            <li>Wait 2 to 3 minutes and refresh</li>
+          </ul>
+        </div>
+
+        <p className="mt-4 text-sm text-gray-600">
+          If it’s a good fit, we usually reply within 1 to 2 business days.
+        </p>
+
+        <button
+          className="mt-5 px-4 py-2 rounded bg-black text-white text-sm"
+          onClick={() => {
+            setSubmitted(false);
+            setForm(initialState);
+            setError(null);
+          }}
+          type="button"
+        >
+          Submit another
+        </button>
       </div>
-
-      <p className="mt-4 text-sm text-gray-600">
-        If it’s a good fit, we usually reply within 1 to 2 business days.
-      </p>
-
-      <button
-        className="mt-5 px-4 py-2 rounded bg-black text-white text-sm"
-        onClick={() => {
-          setSubmitted(false);
-          setForm(initialState);
-        }}
-      >
-        Submit another
-      </button>
-    </div>
-  );
-}
-
+    );
+  }
 
   return (
     <form onSubmit={onSubmit} className="rounded-lg border p-6 space-y-5">
@@ -123,17 +186,21 @@ setSubmitted(true);
             onChange={onChange('name')}
             placeholder="Your name"
             autoComplete="name"
+            required
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-1">Email *</label>
           <input
+            type="email"
+            inputMode="email"
             className="w-full rounded border px-3 py-2"
             value={form.email}
             onChange={onChange('email')}
             placeholder="you@email.com"
             autoComplete="email"
+            required
           />
         </div>
 
@@ -154,6 +221,7 @@ setSubmitted(true);
             className="w-full rounded border px-3 py-2 bg-white"
             value={form.package_interest}
             onChange={onChange('package_interest')}
+            required
           >
             <option value="not_sure">Not sure yet</option>
             <option value="featured">Featured listing</option>
@@ -208,9 +276,10 @@ setSubmitted(true);
 
       <button
         type="submit"
-        className="px-5 py-3 rounded bg-black text-white text-sm font-medium"
+        disabled={submitting}
+        className="px-5 py-3 rounded bg-black text-white text-sm font-medium disabled:opacity-50"
       >
-        Get the Organizer Guide
+        {submitting ? 'Sending…' : 'Get the Organizer Guide'}
       </button>
 
       <p className="text-xs text-gray-500">

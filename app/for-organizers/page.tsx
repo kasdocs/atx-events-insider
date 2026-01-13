@@ -24,9 +24,9 @@ export default function ForOrganizersPage() {
                 </h1>
 
                 <p className="mt-5 text-lg text-gray-600 leading-relaxed">
-                  ATX Events Insider (atxdocs) helps Austinites find what to do this weekend.
-                  If you’re hosting an event or building something local, we can help you
-                  reach the right people without feeling like an ad.
+                  ATX Events Insider (atxdocs) helps Austinites find what to do this weekend. If you’re hosting
+                  an event or building something local, we can help you reach the right people without feeling
+                  like an ad.
                 </p>
 
                 <div className="mt-8 flex flex-col sm:flex-row gap-3">
@@ -45,20 +45,15 @@ export default function ForOrganizersPage() {
                   </a>
                 </div>
 
-                <p className="mt-3 text-sm text-gray-500">
-                  Free submissions stay free. Featured placement is optional.
-                </p>
+                <p className="mt-3 text-sm text-gray-500">Free submissions stay free. Featured placement is optional.</p>
               </div>
 
               {/* Right column: quick stats / proof placeholders */}
               <div className="lg:col-span-5">
                 <div className="rounded-2xl border bg-gray-50 p-6">
-                  <h2 className="text-sm font-semibold text-gray-900">
-                    What you’re buying is attention, not ads
-                  </h2>
+                  <h2 className="text-sm font-semibold text-gray-900">What you’re buying is attention, not ads</h2>
                   <p className="mt-2 text-sm text-gray-600">
-                    When you’re ready, we’ll recommend the best placement based on your date,
-                    neighborhood, and vibe.
+                    When you’re ready, we’ll recommend the best placement based on your date, neighborhood, and vibe.
                   </p>
 
                   <div className="mt-6 grid grid-cols-3 gap-3">
@@ -78,9 +73,8 @@ export default function ForOrganizersPage() {
 
                   <div className="mt-5 rounded-xl border bg-white p-4">
                     <p className="text-sm text-gray-700">
-                      <span className="font-semibold text-gray-900">Pro tip:</span> If your event
-                      is time-sensitive (this week), tell us the date upfront and we’ll prioritize
-                      the fastest option.
+                      <span className="font-semibold text-gray-900">Pro tip:</span> If your event is time-sensitive
+                      (this week), tell us the date upfront and we’ll prioritize the fastest option.
                     </p>
                   </div>
                 </div>
@@ -93,13 +87,10 @@ export default function ForOrganizersPage() {
         <section className="py-14">
           <div className="max-w-6xl mx-auto px-4">
             <div className="max-w-3xl">
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                Built for locals who actually go out
-              </h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Built for locals who actually go out</h2>
               <p className="mt-3 text-gray-600 leading-relaxed">
-                This isn’t a generic calendar. We focus on what people want to do right now:
-                weekend plans, friend-friendly events, date night ideas, and things worth leaving
-                the house for.
+                This isn’t a generic calendar. We focus on what people want to do right now: weekend plans,
+                friend-friendly events, date night ideas, and things worth leaving the house for.
               </p>
             </div>
 
@@ -107,16 +98,15 @@ export default function ForOrganizersPage() {
               <div className="rounded-2xl border p-6">
                 <h3 className="font-semibold text-gray-900">Context, not clutter</h3>
                 <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-                  Your listing shows the details people care about (when, where, vibe),
-                  without spammy banner ads.
+                  Your listing shows the details people care about (when, where, vibe), without spammy banner ads.
                 </p>
               </div>
 
               <div className="rounded-2xl border p-6">
                 <h3 className="font-semibold text-gray-900">Curated fit</h3>
                 <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-                  We review submissions to keep quality high. Better experience for readers,
-                  better results for organizers.
+                  We review submissions to keep quality high. Better experience for readers, better results for
+                  organizers.
                 </p>
               </div>
 
@@ -136,8 +126,8 @@ export default function ForOrganizersPage() {
             <div className="max-w-3xl">
               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Ways to work together</h2>
               <p className="mt-3 text-gray-600 leading-relaxed">
-                Choose what makes sense for your budget and timeline. We’ll recommend the right option
-                once we see your event details.
+                Choose what makes sense for your budget and timeline. We’ll recommend the right option once we see
+                your event details.
               </p>
             </div>
 
@@ -150,14 +140,11 @@ export default function ForOrganizersPage() {
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-                  Submit your event to be listed. Free submissions are always available,
-                  with optional featured placement.
+                  Submit your event to be listed. Free submissions are always available, with optional featured
+                  placement.
                 </p>
                 <div className="mt-4">
-                  <a
-                    href="/submit-event"
-                    className="text-sm font-semibold text-purple-700 hover:text-purple-800"
-                  >
+                  <a href="/submit-event" className="text-sm font-semibold text-purple-700 hover:text-purple-800">
                     Submit for free →
                   </a>
                 </div>
@@ -193,8 +180,8 @@ export default function ForOrganizersPage() {
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-gray-600 leading-relaxed">
-                  Photo and video coverage that documents what your event actually felt like,
-                  not staged marketing content.
+                  Photo and video coverage that documents what your event actually felt like, not staged marketing
+                  content.
                 </p>
               </div>
 
@@ -215,9 +202,7 @@ export default function ForOrganizersPage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">Pricing</h3>
-                  <p className="mt-1 text-sm text-gray-600">
-                    We’ll share simple tiers once we see your date, goals, and timeline.
-                  </p>
+                  <p className="mt-1 text-sm text-gray-600">We’ll share simple tiers once we see your date, goals, and timeline.</p>
                 </div>
                 <a
                   href="#inquiry"
@@ -235,9 +220,7 @@ export default function ForOrganizersPage() {
           <div className="max-w-6xl mx-auto px-4">
             <div className="max-w-3xl">
               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">How it works</h2>
-              <p className="mt-3 text-gray-600 leading-relaxed">
-                Fast, simple, and not pushy. If it’s a fit, we’ll suggest the best option.
-              </p>
+              <p className="mt-3 text-gray-600 leading-relaxed">Fast, simple, and not pushy. If it’s a fit, we’ll suggest the best option.</p>
             </div>
 
             <div className="mt-10 grid gap-6 lg:grid-cols-3">
@@ -280,32 +263,28 @@ export default function ForOrganizersPage() {
               <div className="rounded-2xl border bg-white p-6">
                 <h3 className="font-semibold text-gray-900">Is event submission always free?</h3>
                 <p className="mt-2 text-sm text-gray-600">
-                  Yes. You can submit for free anytime. Paid options are only for optional featured placement
-                  or promotion add-ons.
+                  Yes. You can submit for free anytime. Paid options are only for optional featured placement or promotion add-ons.
                 </p>
               </div>
 
               <div className="rounded-2xl border bg-white p-6">
                 <h3 className="font-semibold text-gray-900">How fast can a featured promo go live?</h3>
                 <p className="mt-2 text-sm text-gray-600">
-                  If your event is this week, mention that in the form. We’ll prioritize quick turn options
-                  based on available slots.
+                  If your event is this week, mention that in the form. We’ll prioritize quick turn options based on available slots.
                 </p>
               </div>
 
               <div className="rounded-2xl border bg-white p-6">
                 <h3 className="font-semibold text-gray-900">Do you guarantee attendance?</h3>
                 <p className="mt-2 text-sm text-gray-600">
-                  No. We’re a discovery platform. We focus on high-intent visibility (people actively browsing
-                  for plans), not inflated impressions.
+                  No. We’re a discovery platform. We focus on high-intent visibility (people actively browsing for plans), not inflated impressions.
                 </p>
               </div>
 
               <div className="rounded-2xl border bg-white p-6">
                 <h3 className="font-semibold text-gray-900">What kinds of events do you feature?</h3>
                 <p className="mt-2 text-sm text-gray-600">
-                  Things that feel relevant to Austinites and match the site vibe. If it’s a fit, we’ll suggest
-                  the best placement.
+                  Things that feel relevant to Austinites and match the site vibe. If it’s a fit, we’ll suggest the best placement.
                 </p>
               </div>
             </div>
@@ -318,18 +297,14 @@ export default function ForOrganizersPage() {
             <div className="rounded-3xl border bg-white p-8 sm:p-10">
               <div className="grid gap-10 lg:grid-cols-12 lg:items-start">
                 <div className="lg:col-span-5">
-                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                    Interested in working together?
-                  </h2>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Interested in working together?</h2>
                   <p className="mt-3 text-gray-600 leading-relaxed">
-                    Start with a quick form so we can understand what you’re planning and share the organizer
-                    guide. If it’s a fit, we’ll follow up with promotion options.
+                    Start with a quick form so we can understand what you’re planning and share the organizer guide. If it’s a fit, we’ll follow up with promotion options.
                   </p>
 
                   <div className="mt-6 rounded-2xl bg-gray-50 border p-5">
                     <p className="text-sm text-gray-700">
-                      <span className="font-semibold text-gray-900">What to include:</span> event date,
-                      neighborhood, ticket link (if any), and whether you want featured placement.
+                      <span className="font-semibold text-gray-900">What to include:</span> event date, neighborhood, ticket link (if any), and whether you want featured placement.
                     </p>
                   </div>
                 </div>
@@ -342,10 +317,7 @@ export default function ForOrganizersPage() {
 
             <p className="mt-6 text-xs text-gray-500">
               Note: If you only want a standard listing, you can always{' '}
-              <a
-                href="/submit-event"
-                className="font-semibold text-purple-700 hover:text-purple-800"
-              >
+              <a href="/submit-event" className="font-semibold text-purple-700 hover:text-purple-800">
                 submit for free
               </a>
               .

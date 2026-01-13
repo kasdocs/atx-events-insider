@@ -1,32 +1,36 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export default function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get('returnTo') || '/';
 
-  const supabase = useMemo(() => {
-  try {
-    return createSupabaseBrowserClient();
-  } catch {
-    return null;
-  }
-}, []);
-
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  useEffect(() => {
+    try {
+      const client = createSupabaseBrowserClient();
+      setSupabase(client);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Auth is not configured.';
+      setSupabase(null);
+      setErrorMsg(msg);
+    }
+  }, []);
+
   const onLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
-    // ✅ Guard: TS + runtime safety if env vars are missing
     if (!supabase) {
       setErrorMsg('Auth is not configured. Missing Supabase env vars.');
       return;
