@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import type { Database } from '@/lib/database.types';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import EventCard from '@/app/components/EventCard';
 
 type SavedRow = Database['public']['Tables']['saved_events']['Row'];
@@ -12,8 +13,8 @@ type EventRow = Database['public']['Tables']['events']['Row'];
 
 export default function SavedClient() {
   const router = useRouter();
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
+  const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -22,8 +23,29 @@ export default function SavedClient() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [goingCountsByEventId, setGoingCountsByEventId] = useState<Record<number, number>>({});
 
+  // Create Supabase after mount
   useEffect(() => {
+    try {
+      const client = createSupabaseBrowserClient() as SupabaseClient<Database>;
+      setSupabase(client);
+    } catch (err) {
+      console.error(err);
+      setSupabase(null);
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
+
     let cancelled = false;
+
+    const resetForLoggedOut = () => {
+      setUserId(null);
+      setSavedEventIds([]);
+      setEvents([]);
+      setGoingCountsByEventId({});
+    };
 
     const load = async () => {
       try {
@@ -40,9 +62,7 @@ export default function SavedClient() {
         setUserId(uid);
 
         if (!uid) {
-          setSavedEventIds([]);
-          setEvents([]);
-          setGoingCountsByEventId({});
+          resetForLoggedOut();
           setLoading(false);
           return;
         }
@@ -75,7 +95,7 @@ export default function SavedClient() {
           return;
         }
 
-        // 3) Fetch events (use * to match EventCard expectations and avoid schema mismatch)
+        // 3) Fetch events
         const { data: eventRows, error: eventsErr } = await supabase
           .from('events')
           .select('*')
@@ -161,6 +181,7 @@ export default function SavedClient() {
           onClick={() => router.push('/login?returnTo=%2Fsaved')}
           className="mt-6 px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity"
           style={{ backgroundColor: '#FF006E' }}
+          type="button"
         >
           Log in →
         </button>

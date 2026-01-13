@@ -20,7 +20,12 @@ type StoryRow = {
 };
 
 export default function FeaturedStoryHero() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const [supabase, setSupabase] = useState<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
+
+useEffect(() => {
+  setSupabase(createSupabaseBrowserClient());
+}, []);
+
   const [loading, setLoading] = useState(true);
   const [story, setStory] = useState<StoryRow | null>(null);
 

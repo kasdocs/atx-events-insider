@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import type { Database } from '@/lib/database.types';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type RSVPRow = Database['public']['Tables']['event_rsvps']['Row'];
 
@@ -15,7 +16,18 @@ export default function RSVPWidget({
   returnTo: string;
 }) {
   const router = useRouter();
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
+  const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
+
+  useEffect(() => {
+    try {
+      const client = createSupabaseBrowserClient() as SupabaseClient<Database>;
+      setSupabase(client);
+    } catch (err) {
+      console.error(err);
+      setSupabase(null);
+    }
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -23,13 +35,13 @@ export default function RSVPWidget({
   const [isGoing, setIsGoing] = useState(false);
   const [goingCount, setGoingCount] = useState(0);
 
-  const refreshCount = async () => {
-    if (!supabase) {
+  const refreshCount = async (client: SupabaseClient<Database> | null) => {
+    if (!client) {
       setGoingCount(0);
       return;
     }
 
-    const { count, error } = await supabase
+    const { count, error } = await client
       .from('event_rsvps')
       .select('*', { count: 'exact', head: true })
       .eq('event_id', eventId)
@@ -45,7 +57,7 @@ export default function RSVPWidget({
     const load = async () => {
       setLoading(true);
 
-      // ✅ Guard
+      // Guard
       if (!supabase) {
         if (!cancelled) {
           setIsGoing(false);
@@ -56,7 +68,7 @@ export default function RSVPWidget({
       }
 
       // counts show for everyone
-      await refreshCount();
+      await refreshCount(supabase);
 
       const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
       if (sessionErr) console.error('getSession error:', sessionErr);
@@ -76,7 +88,8 @@ export default function RSVPWidget({
         .select('id, status')
         .eq('event_id', eventId)
         .eq('user_id', user.id)
-        .maybeSingle<Pick<RSVPRow, 'id' | 'status'>>();
+        .maybeSingle()
+        .returns<Pick<RSVPRow, 'id' | 'status'> | null>();
 
       if (rsvpErr) console.error('Load going state error:', rsvpErr);
 
@@ -98,16 +111,20 @@ export default function RSVPWidget({
   };
 
   const toggleGoing = async () => {
+    if (saving) return;
+
     setSaving(true);
 
     try {
-      // ✅ Guard
+      // Guard
       if (!supabase) {
         requireLogin();
         return;
       }
 
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+      if (sessionErr) console.error('getSession error:', sessionErr);
+
       const user = sessionData.session?.user ?? null;
 
       if (!user) {
@@ -130,7 +147,7 @@ export default function RSVPWidget({
         }
 
         setIsGoing(false);
-        await refreshCount();
+        await refreshCount(supabase);
         router.refresh();
         return;
       }
@@ -148,7 +165,7 @@ export default function RSVPWidget({
       }
 
       setIsGoing(true);
-      await refreshCount();
+      await refreshCount(supabase);
       router.refresh();
     } finally {
       setSaving(false);

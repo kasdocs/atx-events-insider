@@ -12,30 +12,42 @@ export const dynamic = 'force-dynamic';
 type StoryRow = Database['public']['Tables']['stories']['Row'];
 
 export default function StoriesPage() {
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
   const [stories, setStories] = useState<StoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Create the browser client only after we're definitely in the browser.
   useEffect(() => {
+    let cancelled = false;
+
     try {
-      const client = createSupabaseBrowserClient();
-      setSupabase(client);
+      const client = createSupabaseBrowserClient() as SupabaseClient<Database>;
+      if (!cancelled) setSupabase(client);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Supabase is not configured.';
-      setErrorMsg(msg);
-      setSupabase(null);
-      setStories([]);
-      setLoading(false);
+      if (!cancelled) {
+        setErrorMsg(msg);
+        setSupabase(null);
+        setStories([]);
+        setLoading(false);
+      }
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     const fetchStories = async () => {
-      if (!supabase) return;
+      // Guard: supabase is not ready yet
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
 
       setLoading(true);
       setErrorMsg(null);
@@ -71,11 +83,7 @@ export default function StoriesPage() {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   };
 
   return (

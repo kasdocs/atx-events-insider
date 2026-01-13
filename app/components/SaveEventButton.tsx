@@ -12,16 +12,16 @@ export default function SaveEventButton({ eventId }: { eventId: number }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // ✅ Create Supabase client only after mount (browser-only)
+  // Create Supabase client only after mount (browser-only)
   useEffect(() => {
     try {
-      const client = createSupabaseBrowserClient();
+      const client = createSupabaseBrowserClient() as SupabaseClient<Database>;
       setSupabase(client);
     } catch (err) {
       console.error('Supabase browser client init failed:', err);
@@ -33,7 +33,10 @@ export default function SaveEventButton({ eventId }: { eventId: number }) {
   }, []);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
 
@@ -60,7 +63,7 @@ export default function SaveEventButton({ eventId }: { eventId: number }) {
 
       if (error) console.error('saved_events lookup error:', error);
 
-      setIsSaved(!!savedRow);
+      setIsSaved(Boolean(savedRow));
       setLoading(false);
     };
 
@@ -88,13 +91,15 @@ export default function SaveEventButton({ eventId }: { eventId: number }) {
   const onClick = async () => {
     if (loading) return;
 
+    const returnTo = encodeURIComponent(pathname ?? '/');
+
     if (!supabase) {
-      router.push(`/login?returnTo=${encodeURIComponent(pathname)}`);
+      router.push(`/login?returnTo=${returnTo}`);
       return;
     }
 
     if (!userId) {
-      router.push(`/login?returnTo=${encodeURIComponent(pathname)}`);
+      router.push(`/login?returnTo=${returnTo}`);
       return;
     }
 
@@ -126,6 +131,7 @@ export default function SaveEventButton({ eventId }: { eventId: number }) {
 
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={loading}
       className="w-full py-3 text-center font-semibold rounded-lg border-2 transition-colors hover:bg-purple-50 disabled:opacity-60"

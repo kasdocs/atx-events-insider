@@ -1,10 +1,22 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import type { Database } from '@/lib/database.types';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export default function NewsletterSignup({ source = 'homepage' }: { source?: string }) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
+
+  useEffect(() => {
+    try {
+      const client = createSupabaseBrowserClient() as SupabaseClient<Database>;
+      setSupabase(client);
+    } catch {
+      // If env vars are missing, allow UI to render and show a friendly error on submit
+      setSupabase(null);
+    }
+  }, []);
 
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -21,7 +33,7 @@ export default function NewsletterSignup({ source = 'homepage' }: { source?: str
       return;
     }
 
-    // ✅ Guard: supabase can be null if env vars are missing
+    // Guard: supabase can be null if env vars are missing
     if (!supabase) {
       setStatus('error');
       setMessage('Newsletter signup is not configured (missing Supabase env vars).');
@@ -29,6 +41,7 @@ export default function NewsletterSignup({ source = 'homepage' }: { source?: str
     }
 
     setStatus('loading');
+    setMessage('');
 
     const { data: existing, error: checkError } = await supabase
       .from('newsletter_subscribers')

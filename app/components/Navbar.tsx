@@ -1,20 +1,38 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import type { Database } from '@/lib/database.types';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export default function Navbar() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
 
+  // Create supabase only after mount
   useEffect(() => {
+    try {
+      const client = createSupabaseBrowserClient() as SupabaseClient<Database>;
+      setSupabase(client);
+    } catch (e) {
+      // If Supabase env vars are missing, Navbar should still render.
+      // We just won't show auth-based UI.
+      setSupabase(null);
+      setUser(null);
+    }
+  }, []);
+
+  // Load user and subscribe to auth changes
+  useEffect(() => {
+    if (!supabase) return;
+
     let cancelled = false;
 
     const loadUser = async () => {
@@ -41,6 +59,8 @@ export default function Navbar() {
   }, [pathname]);
 
   const handleLogout = async () => {
+    if (!supabase) return;
+
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('Error signing out:', error);
@@ -52,7 +72,7 @@ export default function Navbar() {
   };
 
   const goToLogin = () => {
-    router.push(`/login?returnTo=${encodeURIComponent(pathname)}`);
+    router.push(`/login?returnTo=${encodeURIComponent(pathname ?? '/')}`);
   };
 
   const isActive = (href: string) => {
@@ -62,9 +82,7 @@ export default function Navbar() {
   };
 
   const linkClass = (href: string) =>
-    `transition-colors ${
-      isActive(href) ? 'text-purple-700' : 'text-gray-700 hover:text-purple-700'
-    }`;
+    `transition-colors ${isActive(href) ? 'text-purple-700' : 'text-gray-700 hover:text-purple-700'}`;
 
   const mobileLinkClass = (href: string) =>
     `block px-3 py-2 rounded-lg transition-colors ${
@@ -125,6 +143,7 @@ export default function Navbar() {
                 className="p-2 rounded-md hover:bg-gray-100 text-gray-700"
                 aria-label="Log out"
                 title="Log out"
+                type="button"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path
@@ -141,6 +160,7 @@ export default function Navbar() {
                 className="p-2 rounded-md hover:bg-gray-100 text-gray-700"
                 aria-label="Log in"
                 title="Log in"
+                type="button"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path
@@ -162,13 +182,11 @@ export default function Navbar() {
             onClick={() => setMobileOpen((v) => !v)}
           >
             {mobileOpen ? (
-              // X icon
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path strokeWidth="2" strokeLinecap="round" d="M18 6L6 18" />
                 <path strokeWidth="2" strokeLinecap="round" d="M6 6l12 12" />
               </svg>
             ) : (
-              // Hamburger icon
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path strokeWidth="2" strokeLinecap="round" d="M4 6h16" />
                 <path strokeWidth="2" strokeLinecap="round" d="M4 12h16" />
@@ -207,6 +225,7 @@ export default function Navbar() {
                 <button
                   onClick={handleLogout}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
+                  type="button"
                 >
                   Log out
                 </button>
@@ -214,6 +233,7 @@ export default function Navbar() {
                 <button
                   onClick={goToLogin}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
+                  type="button"
                 >
                   Log in
                 </button>

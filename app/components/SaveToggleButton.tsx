@@ -1,13 +1,24 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import type { Database } from '@/lib/database.types';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type SavedRow = Database['public']['Tables']['saved_events']['Row'];
 
 export default function SaveToggleButton({ eventId }: { eventId: number }) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
+
+  useEffect(() => {
+    try {
+      const client = createSupabaseBrowserClient() as SupabaseClient<Database>;
+      setSupabase(client);
+    } catch (err) {
+      console.error(err);
+      setSupabase(null);
+    }
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -15,7 +26,7 @@ export default function SaveToggleButton({ eventId }: { eventId: number }) {
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    // ✅ Guard for TS + safety if env vars are missing
+    // Guard for TS + safety if env vars are missing
     if (!supabase) {
       setUserId(null);
       setIsSaved(false);
@@ -74,7 +85,7 @@ export default function SaveToggleButton({ eventId }: { eventId: number }) {
 
     if (saving) return;
 
-    // ✅ Guard for TS + safety if env vars are missing
+    // Guard for TS + safety if env vars are missing
     if (!supabase) {
       const returnTo = encodeURIComponent(window.location.pathname);
       window.location.href = `/login?returnTo=${returnTo}`;
@@ -133,7 +144,6 @@ export default function SaveToggleButton({ eventId }: { eventId: number }) {
       } ${saving ? 'opacity-60' : ''}`}
       title={isSaved ? 'Saved' : 'Save'}
     >
-      {/* Heart icon */}
       <svg
         viewBox="0 0 24 24"
         className={`h-5 w-5 ${isSaved ? 'text-purple-700' : 'text-gray-700'}`}
