@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar';
 import FeaturedStoryHero from '@/app/components/FeaturedStoryHero';
 import FYPSection from '@/app/components/FYPSection';
 import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
+import { getBaseUrl } from '@/lib/get-base-url';
 import type { Database } from '@/lib/database.types';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
@@ -95,14 +96,7 @@ export default async function Home() {
   // 2) Fetch featured events (ranked) from your public API route
   let featuredEvents: EventRow[] = [];
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
-      ? process.env.NEXT_PUBLIC_SITE_URL
-      : process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'http://localhost:3000';
-
-    const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/api/featured`, { cache: 'no-store' })
-
+    const res = await fetch(`${getBaseUrl()}/api/featured`, { cache: 'no-store' });
 
     if (!res.ok) {
       const errText = await res.text();
@@ -123,12 +117,6 @@ export default async function Home() {
   const freeEventsDeduped = freeEvents.filter((e) => !featuredIds.has(e.id));
 
   // --- Bulk fetch "going" counts for all events actually shown on homepage ---
-  // FYPSection uses `events` (it decides what to show internally), so we keep events in the pool.
-  // But we DO NOT need to fetch counts for events that never render on the homepage tiles.
-  // We’ll include:
-  // - all events passed to FYPSection (safe)
-  // - freeEventsDeduped cards
-  // - featuredEvents cards
   const eventIds = Array.from(
     new Set(
       [...events, ...freeEventsDeduped, ...featuredEvents]
@@ -189,15 +177,12 @@ export default async function Home() {
 
             {freeEventsDeduped.length > 0 ? (
               <div className="mb-12">
-                {/* Mobile: swipeable row | Desktop: 2-col grid */}
                 <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:grid md:grid-cols-2">
                   {freeEventsDeduped.map((event) => (
                     <div key={event.id} className="snap-start min-w-[85%] md:min-w-0">
                       <EventCard
                         event={event}
-                        goingCount={
-                          typeof event.id === 'number' ? goingCountsByEventId[event.id] ?? 0 : 0
-                        }
+                        goingCount={typeof event.id === 'number' ? goingCountsByEventId[event.id] ?? 0 : 0}
                       />
                     </div>
                   ))}
@@ -213,22 +198,17 @@ export default async function Home() {
             </h2>
 
             {featuredEvents.length > 0 ? (
-              <>
-                {/* Mobile: swipeable row | Desktop: 2-col grid */}
-                <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:grid md:grid-cols-2">
-                  {featuredEvents.map((event) => (
-                    <div key={`featured-${event.id}`} className="snap-start min-w-[85%] md:min-w-0">
-                      <EventCard
-                        event={event}
-                        goingCount={
-                          typeof event.id === 'number' ? goingCountsByEventId[event.id] ?? 0 : 0
-                        }
-                        featured
-                      />
-                    </div>
-                  ))}
-                </div>
-              </>
+              <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:grid md:grid-cols-2">
+                {featuredEvents.map((event) => (
+                  <div key={`featured-${event.id}`} className="snap-start min-w-[85%] md:min-w-0">
+                    <EventCard
+                      event={event}
+                      goingCount={typeof event.id === 'number' ? goingCountsByEventId[event.id] ?? 0 : 0}
+                      featured
+                    />
+                  </div>
+                ))}
+              </div>
             ) : (
               <p className="text-gray-600">No featured events yet. Add some in the admin dashboard.</p>
             )}
