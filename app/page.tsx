@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import Navbar from '@/app/components/Navbar';
 import EventCard from '@/app/components/EventCard';
 import Sidebar from './components/Sidebar';
@@ -99,9 +101,8 @@ export default async function Home() {
         ? `https://${process.env.VERCEL_URL}`
         : 'http://localhost:3000';
 
-    const res = await fetch(`${baseUrl}/api/featured`, {
-      cache: 'no-store',
-    });
+    const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/api/featured`, { cache: 'no-store' })
+
 
     if (!res.ok) {
       const errText = await res.text();
