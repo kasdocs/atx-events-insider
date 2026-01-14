@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { Database } from '@/lib/database.types';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import EventCard from '@/app/components/EventCard';
+import MobileEventCarousel from '@/app/components/MobileEventCarousel';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
 type PrefRow = Database['public']['Tables']['user_preferences']['Row'];
@@ -76,7 +77,12 @@ export default function FYPSection({
   events: EventRow[];
   goingCountsByEventId?: Record<number, number>;
 }) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const [supabase, setSupabase] = useState<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
+
+  useEffect(() => {
+    setSupabase(createSupabaseBrowserClient());
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [fypEvents, setFypEvents] = useState<EventRow[]>([]);
   const [showCTA, setShowCTA] = useState(false);
@@ -88,7 +94,7 @@ export default function FYPSection({
       setLoading(true);
       setShowCTA(false);
 
-      // ✅ Guard: supabase can be null if env vars are missing
+      // Guard: supabase can be null if env vars are missing
       if (!supabase) {
         if (!cancelled) {
           setFypEvents([]);
@@ -210,15 +216,24 @@ export default function FYPSection({
         🎯 For You
       </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Mobile: swipe carousel. md+: grid */}
+      <MobileEventCarousel>
         {fypEvents.map((event) => (
-          <EventCard
+          <div
             key={event.id}
-            event={event}
-            goingCount={typeof event.id === 'number' ? (goingCountsByEventId?.[event.id] ?? 0) : 0}
-          />
+            className="
+              snap-start min-w-[85%]
+              sm:min-w-[70%]
+              md:min-w-0
+            "
+          >
+            <EventCard
+              event={event}
+              goingCount={typeof event.id === 'number' ? (goingCountsByEventId?.[event.id] ?? 0) : 0}
+            />
+          </div>
         ))}
-      </div>
+      </MobileEventCarousel>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import EventCard from '@/app/components/EventCard';
 import Sidebar from './components/Sidebar';
 import FeaturedStoryHero from '@/app/components/FeaturedStoryHero';
 import FYPSection from '@/app/components/FYPSection';
+import MobileEventCarousel from '@/app/components/MobileEventCarousel';
 import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 import { getBaseUrl } from '@/lib/get-base-url';
 import type { Database } from '@/lib/database.types';
@@ -165,9 +166,9 @@ export default async function Home() {
       {/* Main Content with Sidebar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Main Content - 70% */}
+          {/* Main Content */}
           <div className="lg:col-span-8">
-            {/* For You Section */}
+            {/* For You Section (now swipeable on mobile inside FYPSection) */}
             <FYPSection events={events} goingCountsByEventId={goingCountsByEventId} />
 
             {/* Free This Weekend Section */}
@@ -176,18 +177,23 @@ export default async function Home() {
             </h2>
 
             {freeEventsDeduped.length > 0 ? (
-              <div className="mb-12">
-                <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:grid md:grid-cols-2">
-                  {freeEventsDeduped.map((event) => (
-                    <div key={event.id} className="snap-start min-w-[85%] md:min-w-0">
-                      <EventCard
-                        event={event}
-                        goingCount={typeof event.id === 'number' ? goingCountsByEventId[event.id] ?? 0 : 0}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <MobileEventCarousel>
+                {freeEventsDeduped.map((event) => (
+                  <div
+                    key={event.id}
+                    className="
+                      snap-start min-w-[85%]
+                      sm:min-w-[70%]
+                      md:min-w-0
+                    "
+                  >
+                    <EventCard
+                      event={event}
+                      goingCount={typeof event.id === 'number' ? goingCountsByEventId[event.id] ?? 0 : 0}
+                    />
+                  </div>
+                ))}
+              </MobileEventCarousel>
             ) : (
               <p className="text-gray-600 mb-12">No free events found. Check back soon!</p>
             )}
@@ -198,9 +204,16 @@ export default async function Home() {
             </h2>
 
             {featuredEvents.length > 0 ? (
-              <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory md:mx-0 md:px-0 md:pb-0 md:overflow-visible md:grid md:grid-cols-2">
+              <MobileEventCarousel>
                 {featuredEvents.map((event) => (
-                  <div key={`featured-${event.id}`} className="snap-start min-w-[85%] md:min-w-0">
+                  <div
+                    key={`featured-${event.id}`}
+                    className="
+                      snap-start min-w-[85%]
+                      sm:min-w-[70%]
+                      md:min-w-0
+                    "
+                  >
                     <EventCard
                       event={event}
                       goingCount={typeof event.id === 'number' ? goingCountsByEventId[event.id] ?? 0 : 0}
@@ -208,13 +221,13 @@ export default async function Home() {
                     />
                   </div>
                 ))}
-              </div>
+              </MobileEventCarousel>
             ) : (
               <p className="text-gray-600">No featured events yet. Add some in the admin dashboard.</p>
             )}
           </div>
 
-          {/* Sidebar - 30% */}
+          {/* Sidebar */}
           <div className="lg:col-span-4">
             <Sidebar />
           </div>
