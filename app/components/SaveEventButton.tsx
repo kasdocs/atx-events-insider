@@ -8,6 +8,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type SavedRow = Database['public']['Tables']['saved_events']['Row'];
 
+function isAuthSessionMissingError(err: unknown) {
+  const anyErr = err as any;
+  return !!anyErr && anyErr.name === 'AuthSessionMissingError';
+}
+
 export default function SaveEventButton({ eventId }: { eventId: number }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -71,7 +76,15 @@ export default function SaveEventButton({ eventId }: { eventId: number }) {
       setLoading(true);
 
       const { data, error } = await supabase.auth.getUser();
-      if (error) console.error('auth.getUser error:', error);
+
+      if (error) {
+        // Logged-out users often trigger AuthSessionMissingError. Treat as "no user" quietly.
+        if (!isAuthSessionMissingError(error)) {
+          console.error('auth.getUser error:', error);
+        }
+        await refresh(null);
+        return;
+      }
 
       await refresh(data.user?.id ?? null);
     };

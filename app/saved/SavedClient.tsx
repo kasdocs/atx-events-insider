@@ -11,6 +11,11 @@ import EventCard from '@/app/components/EventCard';
 type SavedRow = Database['public']['Tables']['saved_events']['Row'];
 type EventRow = Database['public']['Tables']['events']['Row'];
 
+function isAuthSessionMissingError(err: unknown) {
+  const anyErr = err as any;
+  return !!anyErr && anyErr.name === 'AuthSessionMissingError';
+}
+
 export default function SavedClient() {
   const router = useRouter();
 
@@ -54,7 +59,19 @@ export default function SavedClient() {
 
         // 1) Get user
         const { data: userData, error: userErr } = await supabase.auth.getUser();
-        if (userErr) console.error('SavedClient auth.getUser error:', userErr);
+
+        if (userErr) {
+          // Logged-out users often trigger AuthSessionMissingError. Treat as "no user" quietly.
+          if (!isAuthSessionMissingError(userErr)) {
+            console.error('SavedClient auth.getUser error:', userErr);
+          }
+
+          if (cancelled) return;
+
+          resetForLoggedOut();
+          setLoading(false);
+          return;
+        }
 
         const uid = userData.user?.id ?? null;
         if (cancelled) return;

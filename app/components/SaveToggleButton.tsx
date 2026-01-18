@@ -7,6 +7,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type SavedRow = Database['public']['Tables']['saved_events']['Row'];
 
+function isAuthSessionMissingError(err: unknown) {
+  const anyErr = err as any;
+  return !!anyErr && anyErr.name === 'AuthSessionMissingError';
+}
+
 export default function SaveToggleButton({ eventId }: { eventId: number }) {
   const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
 
@@ -40,7 +45,18 @@ export default function SaveToggleButton({ eventId }: { eventId: number }) {
       setLoading(true);
 
       const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr) console.error('SaveToggleButton auth.getUser error:', userErr);
+
+      if (userErr) {
+        if (!isAuthSessionMissingError(userErr)) {
+          console.error('SaveToggleButton auth.getUser error:', userErr);
+        }
+        if (!cancelled) {
+          setUserId(null);
+          setIsSaved(false);
+          setLoading(false);
+        }
+        return;
+      }
 
       const user = userData.user ?? null;
 

@@ -12,6 +12,11 @@ type PrefRow = Database['public']['Tables']['user_preferences']['Row'];
 
 type Vibe = NonNullable<EventRow['vibe']>[number];
 
+function isAuthSessionMissingError(err: unknown) {
+  const anyErr = err as any;
+  return !!anyErr && anyErr.name === 'AuthSessionMissingError';
+}
+
 function parseDateKey(dateStr: string | null) {
   if (!dateStr) return Number.POSITIVE_INFINITY;
   const [y, m, d] = dateStr.split('-').map((x) => Number(x));
@@ -80,7 +85,11 @@ export default function FYPSection({
   const [supabase, setSupabase] = useState<ReturnType<typeof createSupabaseBrowserClient> | null>(null);
 
   useEffect(() => {
-    setSupabase(createSupabaseBrowserClient());
+    try {
+      setSupabase(createSupabaseBrowserClient());
+    } catch {
+      setSupabase(null);
+    }
   }, []);
 
   const [loading, setLoading] = useState(true);
@@ -105,7 +114,19 @@ export default function FYPSection({
       }
 
       const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-      if (sessionErr) console.error('FYP getSession error:', sessionErr);
+
+      if (sessionErr) {
+        if (!isAuthSessionMissingError(sessionErr)) {
+          console.error('FYP getSession error:', sessionErr);
+        }
+
+        if (!cancelled) {
+          setFypEvents([]);
+          setShowCTA(false);
+          setLoading(false);
+        }
+        return;
+      }
 
       const user = sessionData.session?.user ?? null;
 

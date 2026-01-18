@@ -3,10 +3,15 @@ import Navbar from '@/app/components/Navbar';
 import EventCard from '@/app/components/EventCard';
 import SaveToggleButton from '@/app/components/SaveToggleButton';
 import RSVPWidget from '@/app/components/RSVPWidget';
+import CopyLinkButton from '@/app/components/CopyLinkButton';
 import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 import type { Database } from '@/lib/database.types';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
+
+// ✅ Change this if Kas's author slug is different
+const KAS_AUTHOR_SLUG = 'kas';
+const KAS_AUTHOR_HREF = `/authors/${KAS_AUTHOR_SLUG}`;
 
 export default async function EventDetailPage({
   params,
@@ -75,6 +80,13 @@ export default async function EventDetailPage({
 
   const dateLabel = event.event_date ? formatDate(event.event_date) : 'Date TBD';
 
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/$/, '');
+  const shareUrl = siteUrl ? `${siteUrl}/events/${slug}` : `/events/${slug}`;
+
+  const emailSubject = encodeURIComponent(event.title ?? 'ATX Events Insider event');
+  const emailBody = encodeURIComponent(`Check this out:\n\n${shareUrl}`);
+  const emailHref = `mailto:?subject=${emailSubject}&body=${emailBody}`;
+
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
@@ -128,9 +140,23 @@ export default async function EventDetailPage({
 
             {event.insider_tip && (
               <div className="mb-8 p-6 bg-purple-50 rounded-xl border border-purple-100">
-                <h3 className="text-xl font-bold mb-3" style={{ color: '#7B2CBF' }}>
-                  💡 Insider Tip from Kas
-                </h3>
+                {/* ✅ Link the author name to bio */}
+                <a
+                  href={KAS_AUTHOR_HREF}
+                  className="group flex items-center justify-between gap-3 mb-3"
+                >
+                  <h3
+                    className="text-xl font-bold group-hover:text-purple-700 transition-colors"
+                    style={{ color: '#7B2CBF' }}
+                  >
+                    💡 Insider Tip from Kas
+                  </h3>
+
+                  <span className="text-sm font-semibold text-purple-700 group-hover:underline">
+                    View bio →
+                  </span>
+                </a>
+
                 <div className="text-sm text-gray-600">{event.insider_tip}</div>
               </div>
             )}
@@ -228,12 +254,13 @@ export default async function EventDetailPage({
                   Share This Event
                 </h3>
                 <div className="flex gap-3">
-                  <button className="flex-1 py-2 bg-white rounded-lg hover:bg-gray-50 transition-colors text-sm font-semibold">
-                    📱 Copy Link
-                  </button>
-                  <button className="flex-1 py-2 bg-white rounded-lg hover:bg-gray-50 transition-colors text-sm font-semibold">
+                  <CopyLinkButton url={shareUrl} />
+                  <a
+                    href={emailHref}
+                    className="flex-1 py-2 bg-white rounded-lg hover:bg-gray-50 transition-colors text-sm font-semibold text-center"
+                  >
                     📧 Email
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>

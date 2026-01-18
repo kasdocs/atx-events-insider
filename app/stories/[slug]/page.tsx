@@ -1,12 +1,23 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import Navbar from '@/app/components/Navbar';
 import EventCard from '@/app/components/EventCard';
 import NewsletterSignup from '@/app/components/NewsletterSignup';
 import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 import type { Database } from '@/lib/database.types';
 
-type StoryRow = Database['public']['Tables']['stories']['Row'];
 type EventRow = Database['public']['Tables']['events']['Row'];
+
+// Local “safe” story type that includes author_id even if your database.types.ts is stale
+type StoryRowSafe = Database['public']['Tables']['stories']['Row'] & {
+  author_id?: string | null;
+};
+
+type AuthorPreview = {
+  name: string | null;
+  slug: string | null;
+  avatar_url: string | null;
+};
 
 export default async function StoryDetailPage({
   params,
@@ -17,16 +28,30 @@ export default async function StoryDetailPage({
 
   const supabase = createSupabaseServerAnonClient();
 
-  // Fetch the specific story
   const { data: story, error: storyErr } = await supabase
     .from('stories')
     .select('*')
     .eq('slug', slug)
-    .single<StoryRow>();
+    .single<StoryRowSafe>();
 
   if (storyErr || !story) notFound();
 
-  // Fetch the related event if event_id exists
+  // Fetch author (prefer author_id, fall back to legacy story.author string)
+  let author: AuthorPreview | null = null;
+
+  if (story.author_id) {
+    const { data: authorData, error: authorErr } = await supabase
+      .from('authors')
+      .select('name, slug, avatar_url')
+      .eq('id', story.author_id)
+      .maybeSingle();
+
+    if (!authorErr && authorData) {
+      author = authorData as AuthorPreview;
+    }
+  }
+
+  // Related event
   let relatedEvent: EventRow | null = null;
 
   if (story.event_id) {
@@ -39,14 +64,14 @@ export default async function StoryDetailPage({
     if (!eventErr && eventData) relatedEvent = eventData;
   }
 
-  // Fetch other recent stories
+  // Recent stories
   const { data: recentStories } = await supabase
     .from('stories')
     .select('*')
     .neq('id', story.id)
     .order('published_date', { ascending: false })
     .limit(3)
-    .returns<StoryRow[]>();
+    .returns<StoryRowSafe[]>();
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '';
@@ -59,11 +84,13 @@ export default async function StoryDetailPage({
     });
   };
 
+  const authorName = author?.name || story.author || 'Unknown';
+  const authorSlug = author?.slug || null;
+
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      {/* Back Button */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <a
           href="/stories"
@@ -74,7 +101,6 @@ export default async function StoryDetailPage({
       </div>
 
       <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        {/* Badges */}
         <div className="flex gap-3 mb-4 flex-wrap">
           {story.featured && (
             <span
@@ -91,19 +117,40 @@ export default async function StoryDetailPage({
           )}
         </div>
 
-        {/* Title */}
         <h1 className="text-5xl font-bold mb-4" style={{ color: '#7B2CBF' }}>
           {story.title}
         </h1>
 
-        {/* Meta Info */}
         <div className="flex items-center gap-4 text-gray-600 mb-8 pb-8 border-b border-gray-200">
-          <span className="font-semibold">By {story.author || 'Unknown'}</span>
+          <div className="flex items-center gap-3">
+            {author?.avatar_url ? (
+              <img
+                src={author.avatar_url}
+                alt={authorName}
+                className="h-9 w-9 rounded-full object-cover border border-gray-200"
+              />
+            ) : (
+              <div className="h-9 w-9 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold border border-purple-200">
+                {authorName.slice(0, 1).toUpperCase()}
+              </div>
+            )}
+
+            {authorSlug ? (
+              <Link
+                href={`/authors/${authorSlug}`}
+                className="font-semibold hover:text-purple-700 transition-colors"
+              >
+                By {authorName}
+              </Link>
+            ) : (
+              <span className="font-semibold">By {authorName}</span>
+            )}
+          </div>
+
           <span>•</span>
           <span>{formatDate(story.published_date)}</span>
         </div>
 
-        {/* Cover Image */}
         <div className="mb-8 rounded-xl overflow-hidden">
           <img
             src={
@@ -115,21 +162,16 @@ export default async function StoryDetailPage({
           />
         </div>
 
-        {/* Excerpt */}
         {story.excerpt && (
           <div className="text-xl text-gray-700 mb-8 p-6 bg-purple-50 rounded-xl border-l-4 border-purple-600">
             {story.excerpt}
           </div>
         )}
 
-        {/* Main Content */}
         <div className="prose prose-lg max-w-none">
-          <div className="text-gray-800 leading-relaxed whitespace-pre-line">
-            {story.content || ''}
-          </div>
+          <div className="text-gray-800 leading-relaxed whitespace-pre-line">{story.content || ''}</div>
         </div>
 
-        {/* Related Event */}
         {relatedEvent && (
           <div className="mt-12 pt-12 border-t border-gray-200">
             <h2 className="text-2xl font-bold mb-6" style={{ color: '#7B2CBF' }}>
@@ -141,7 +183,6 @@ export default async function StoryDetailPage({
           </div>
         )}
 
-        {/* More Stories */}
         {recentStories && recentStories.length > 0 && (
           <div className="mt-12 pt-12 border-t border-gray-200">
             <h2 className="text-2xl font-bold mb-6" style={{ color: '#7B2CBF' }}>
@@ -149,11 +190,7 @@ export default async function StoryDetailPage({
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {recentStories.map((recentStory) => (
-                <a
-                  key={recentStory.id}
-                  href={`/stories/${recentStory.slug}`}
-                  className="group"
-                >
+                <a key={recentStory.id} href={`/stories/${recentStory.slug}`} className="group">
                   <div className="bg-white rounded-lg overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow">
                     <div className="aspect-video bg-gray-200">
                       <img
@@ -181,9 +218,7 @@ export default async function StoryDetailPage({
                       <h3 className="font-bold text-sm mb-2 group-hover:text-purple-600 line-clamp-2">
                         {recentStory.title}
                       </h3>
-                      <p className="text-xs text-gray-500">
-                        {formatDate(recentStory.published_date)}
-                      </p>
+                      <p className="text-xs text-gray-500">{formatDate(recentStory.published_date)}</p>
                     </div>
                   </div>
                 </a>
@@ -192,7 +227,6 @@ export default async function StoryDetailPage({
           </div>
         )}
 
-        {/* Newsletter */}
         <div className="mt-12 pt-8 border-t border-gray-200">
           <div className="max-w-md mx-auto">
             <NewsletterSignup source="story-page" />

@@ -7,17 +7,48 @@ import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import type { Database } from '@/lib/database.types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export const dynamic = 'force-dynamic';
-
 type StoryRow = Database['public']['Tables']['stories']['Row'];
+
+type AuthorPreview = {
+  name: string | null;
+  slug: string | null;
+  avatar_url: string | null;
+};
+
+type StoryWithAuthor = Pick<
+  StoryRow,
+  | 'id'
+  | 'created_at'
+  | 'title'
+  | 'slug'
+  | 'cover_image'
+  | 'author'
+  | 'author_id'
+  | 'published_date'
+  | 'featured'
+  | 'excerpt'
+  | 'story_type'
+> & {
+  // hydrated from join
+  authors?: AuthorPreview | null;
+};
+
+function initials(name: string) {
+  const cleaned = (name ?? '').trim();
+  if (!cleaned) return '?';
+  const parts = cleaned.split(' ').filter(Boolean);
+  const first = parts[0]?.[0] ?? '?';
+  const second = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : '';
+  return (first + second).toUpperCase();
+}
 
 export default function StoriesPage() {
   const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
-  const [stories, setStories] = useState<StoryRow[]>([]);
+  const [stories, setStories] = useState<StoryWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Create the browser client only after we're definitely in the browser.
+  // Create the browser client only after mount
   useEffect(() => {
     let cancelled = false;
 
@@ -43,7 +74,6 @@ export default function StoriesPage() {
     let cancelled = false;
 
     const fetchStories = async () => {
-      // Guard: supabase is not ready yet
       if (!supabase) {
         setLoading(false);
         return;
@@ -52,13 +82,31 @@ export default function StoriesPage() {
       setLoading(true);
       setErrorMsg(null);
 
+      // Prefer explicit relationship alias to avoid "relationship not found" issues.
       const { data, error } = await supabase
         .from('stories')
         .select(
-          'id, created_at, title, slug, content, cover_image, author, published_date, event_id, featured, excerpt, story_type'
+          `
+          id,
+          created_at,
+          title,
+          slug,
+          cover_image,
+          author,
+          author_id,
+          published_date,
+          featured,
+          excerpt,
+          story_type,
+          authors:author_id (
+            name,
+            slug,
+            avatar_url
+          )
+        `
         )
         .order('published_date', { ascending: false })
-        .returns<StoryRow[]>();
+        .returns<StoryWithAuthor[]>();
 
       if (cancelled) return;
 
@@ -67,7 +115,7 @@ export default function StoriesPage() {
         setErrorMsg('Failed to load stories. Please try again.');
         setStories([]);
       } else {
-        setStories(data ?? []);
+        setStories(Array.isArray(data) ? data : []);
       }
 
       setLoading(false);
@@ -113,11 +161,19 @@ export default function StoriesPage() {
         ) : stories.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {stories.map((story) => {
-              const href = story.slug ? `/stories/${story.slug}` : '/stories';
+              const storyHref = story.slug ? `/stories/${story.slug}` : '/stories';
+
+              const authorName = story.authors?.name ?? story.author ?? 'Unknown';
+              const authorSlug = story.authors?.slug ?? null;
+              const authorHref = authorSlug ? `/authors/${authorSlug}` : null;
+              const avatarUrl = story.authors?.avatar_url ?? null;
 
               return (
-                <Link key={story.id} href={href} className="group">
-                  <article className="bg-white rounded-xl overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow duration-300">
+                <article
+                  key={story.id}
+                  className="bg-white rounded-xl overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow duration-300"
+                >
+                  <Link href={storyHref} className="group block">
                     <div className="aspect-video bg-gray-200 overflow-hidden">
                       <img
                         src={
@@ -129,7 +185,7 @@ export default function StoriesPage() {
                       />
                     </div>
 
-                    <div className="p-6">
+                    <div className="p-6 pb-4">
                       <div className="flex gap-2 mb-3 flex-wrap">
                         {story.featured && (
                           <span
@@ -151,14 +207,51 @@ export default function StoriesPage() {
                       </h2>
 
                       <p className="text-gray-600 text-sm mb-4 line-clamp-3">{story.excerpt ?? ''}</p>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">By {story.author ?? 'Unknown'}</span>
-                        <span className="text-gray-400">{formatDate(story.published_date)}</span>
-                      </div>
                     </div>
-                  </article>
-                </Link>
+                  </Link>
+
+                  <div className="px-6 pb-6">
+                    <div className="flex items-center justify-between text-sm">
+                      {/* Author block */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        {avatarUrl ? (
+                          <img
+                            src={avatarUrl}
+                            alt={authorName}
+                            className="h-8 w-8 rounded-full object-cover border border-gray-200"
+                          />
+                        ) : (
+                          <div
+                            className="h-8 w-8 rounded-full flex items-center justify-center font-extrabold border"
+                            style={{
+                              backgroundColor: '#F3E8FF',
+                              color: '#7B2CBF',
+                              borderColor: '#E9D5FF',
+                              fontSize: 12,
+                            }}
+                            aria-label={`Author initials for ${authorName}`}
+                            title={authorName}
+                          >
+                            {initials(authorName)}
+                          </div>
+                        )}
+
+                        <div className="text-gray-500 truncate">
+                          By{' '}
+                          {authorHref ? (
+                            <Link href={authorHref} className="font-semibold hover:underline text-gray-700">
+                              {authorName}
+                            </Link>
+                          ) : (
+                            <span className="font-semibold text-gray-700">{authorName}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <span className="text-gray-400 shrink-0">{formatDate(story.published_date)}</span>
+                    </div>
+                  </div>
+                </article>
               );
             })}
           </div>

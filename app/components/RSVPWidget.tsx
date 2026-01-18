@@ -8,6 +8,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 type RSVPRow = Database['public']['Tables']['event_rsvps']['Row'];
 
+function isAuthSessionMissingError(err: unknown) {
+  const anyErr = err as any;
+  return !!anyErr && anyErr.name === 'AuthSessionMissingError';
+}
+
 export default function RSVPWidget({
   eventId,
   returnTo,
@@ -71,7 +76,17 @@ export default function RSVPWidget({
       await refreshCount(supabase);
 
       const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-      if (sessionErr) console.error('getSession error:', sessionErr);
+
+      if (sessionErr) {
+        if (!isAuthSessionMissingError(sessionErr)) {
+          console.error('getSession error:', sessionErr);
+        }
+        if (!cancelled) {
+          setIsGoing(false);
+          setLoading(false);
+        }
+        return;
+      }
 
       const user = sessionData.session?.user ?? null;
 
@@ -123,7 +138,14 @@ export default function RSVPWidget({
       }
 
       const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-      if (sessionErr) console.error('getSession error:', sessionErr);
+
+      if (sessionErr) {
+        if (!isAuthSessionMissingError(sessionErr)) {
+          console.error('getSession error:', sessionErr);
+        }
+        requireLogin();
+        return;
+      }
 
       const user = sessionData.session?.user ?? null;
 

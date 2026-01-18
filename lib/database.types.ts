@@ -12,33 +12,38 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
+      authors: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          favorite_event_type: string | null
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          favorite_event_type?: string | null
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          favorite_event_type?: string | null
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
       event_rsvps: {
         Row: {
           created_at: string
@@ -65,6 +70,8 @@ export type Database = {
       }
       event_submissions: {
         Row: {
+          approved_at: string | null
+          approved_event_id: number | null
           description: string | null
           event_date: string
           event_type: string
@@ -72,6 +79,7 @@ export type Database = {
           image_url: string | null
           insider_tip: string | null
           instagram_url: string | null
+          ip_address: string | null
           location: string
           neighborhood: string | null
           organizer_email: string
@@ -87,8 +95,11 @@ export type Database = {
           subtype_3: string | null
           time: string | null
           title: string
+          user_agent: string | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_event_id?: number | null
           description?: string | null
           event_date: string
           event_type: string
@@ -96,6 +107,7 @@ export type Database = {
           image_url?: string | null
           insider_tip?: string | null
           instagram_url?: string | null
+          ip_address?: string | null
           location: string
           neighborhood?: string | null
           organizer_email: string
@@ -111,8 +123,11 @@ export type Database = {
           subtype_3?: string | null
           time?: string | null
           title: string
+          user_agent?: string | null
         }
         Update: {
+          approved_at?: string | null
+          approved_event_id?: number | null
           description?: string | null
           event_date?: string
           event_type?: string
@@ -120,6 +135,7 @@ export type Database = {
           image_url?: string | null
           insider_tip?: string | null
           instagram_url?: string | null
+          ip_address?: string | null
           location?: string
           neighborhood?: string | null
           organizer_email?: string
@@ -135,6 +151,7 @@ export type Database = {
           subtype_3?: string | null
           time?: string | null
           title?: string
+          user_agent?: string | null
         }
         Relationships: []
       }
@@ -405,6 +422,7 @@ export type Database = {
       stories: {
         Row: {
           author: string | null
+          author_id: string | null
           content: string | null
           cover_image: string | null
           created_at: string
@@ -419,6 +437,7 @@ export type Database = {
         }
         Insert: {
           author?: string | null
+          author_id?: string | null
           content?: string | null
           cover_image?: string | null
           created_at?: string
@@ -433,6 +452,7 @@ export type Database = {
         }
         Update: {
           author?: string | null
+          author_id?: string | null
           content?: string | null
           cover_image?: string | null
           created_at?: string
@@ -445,7 +465,15 @@ export type Database = {
           story_type?: string | null
           title?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stories_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "authors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_preferences: {
         Row: {
@@ -637,9 +665,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       vibe: [

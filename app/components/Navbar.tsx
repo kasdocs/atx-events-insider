@@ -3,10 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import type { User } from '@supabase/supabase-js';
+import type { User, SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import type { Database } from '@/lib/database.types';
-import type { SupabaseClient } from '@supabase/supabase-js';
+
+function isAuthSessionMissingError(err: unknown) {
+  if (!err) return false;
+  const msg =
+    typeof err === 'object' && err && 'message' in err ? String((err as any).message) : String(err);
+  return msg.toLowerCase().includes('auth session missing');
+}
 
 export default function Navbar() {
   const [supabase, setSupabase] = useState<SupabaseClient<Database> | null>(null);
@@ -16,29 +22,45 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Create supabase only after mount
   useEffect(() => {
     try {
       const client = createSupabaseBrowserClient() as SupabaseClient<Database>;
       setSupabase(client);
-    } catch (e) {
-      // If Supabase env vars are missing, Navbar should still render.
-      // We just won't show auth-based UI.
+    } catch {
       setSupabase(null);
       setUser(null);
     }
   }, []);
 
-  // Load user and subscribe to auth changes
   useEffect(() => {
     if (!supabase) return;
 
     let cancelled = false;
 
     const loadUser = async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) console.error('Error getting user:', error);
-      if (!cancelled) setUser(data.user ?? null);
+      // 1) Ask for session first
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+
+      if (sessionErr && !isAuthSessionMissingError(sessionErr)) {
+        console.error('Navbar getSession error:', sessionErr);
+      }
+
+      const sessionUser = sessionData.session?.user ?? null;
+
+      // If there’s no session, don’t call getUser (avoids noise)
+      if (!sessionUser) {
+        if (!cancelled) setUser(null);
+        return;
+      }
+
+      // 2) If there IS a session, validate user
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+
+      if (userErr && !isAuthSessionMissingError(userErr)) {
+        console.error('Navbar getUser error:', userErr);
+      }
+
+      if (!cancelled) setUser(userData.user ?? sessionUser);
     };
 
     loadUser();
@@ -53,7 +75,6 @@ export default function Navbar() {
     };
   }, [supabase]);
 
-  // Close mobile menu on route change
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
@@ -62,7 +83,7 @@ export default function Navbar() {
     if (!supabase) return;
 
     const { error } = await supabase.auth.signOut();
-    if (error) {
+    if (error && !isAuthSessionMissingError(error)) {
       console.error('Error signing out:', error);
       return;
     }
@@ -92,14 +113,12 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Left: Logo */}
         <Link href="/" className="flex items-center gap-2">
           <span className="font-bold text-lg" style={{ color: '#7B2CBF' }}>
             ATX Events Insider
           </span>
         </Link>
 
-        {/* Center: Desktop Nav */}
         <nav className="hidden md:flex items-center gap-8 text-sm font-semibold">
           <Link href="/browse" className={linkClass('/browse')}>
             Browse Events
@@ -120,9 +139,7 @@ export default function Navbar() {
           )}
         </nav>
 
-        {/* Right: Actions */}
         <div className="flex items-center gap-2">
-          {/* Search icon */}
           <Link
             href="/browse"
             className="p-2 rounded-md hover:bg-gray-100 text-gray-700"
@@ -135,7 +152,6 @@ export default function Navbar() {
             </svg>
           </Link>
 
-          {/* Desktop login/logout */}
           <div className="hidden md:block">
             {user ? (
               <button
@@ -174,7 +190,6 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile hamburger */}
           <button
             type="button"
             className="md:hidden p-2 rounded-md hover:bg-gray-100 text-gray-700"
@@ -197,7 +212,6 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu panel */}
       {mobileOpen && (
         <div className="md:hidden border-t border-gray-200 bg-white">
           <div className="max-w-7xl mx-auto px-4 py-3 space-y-2 text-sm font-semibold">

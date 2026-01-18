@@ -95,11 +95,23 @@ type Story = {
   excerpt?: string;
   cover_image?: string;
   story_type?: string;
-  author: string;
+  author?: string | null;
+  author_id?: string | null;
   published_date: string;
   event_id?: number;
   featured: boolean;
 };
+
+type Author = {
+  id: string; // uuid
+  name: string;
+  slug: string;
+  bio?: string | null;
+  favorite_event_type?: string | null;
+  avatar_url?: string | null;
+  created_at?: string | null;
+};
+
 
 const story_type = [
   'Event Recap',
@@ -286,6 +298,13 @@ export default function AdminDashboard() {
             >
               Organizer Inquiries
             </button>
+            <button
+  onClick={() => setActiveTab('authors')}
+  className={`px-6 py-4 font-semibold ${activeTab === 'authors' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-600'}`}
+>
+  Authors
+</button>
+
           </div>
 
           <div className="p-6">
@@ -293,6 +312,7 @@ export default function AdminDashboard() {
             {activeTab === 'featured' && <FeaturedManager />}
             {activeTab === 'stories' && <StoriesManager />}
             {activeTab === 'subscribers' && <SubscribersManager />}
+            {activeTab === 'authors' && <AuthorsManager />}
             {activeTab === 'submissions' && <SubmissionsManager />}
             {activeTab === 'organizer_inquiries' && <OrganizerInquiriesManager />}
           </div>
@@ -1252,9 +1272,12 @@ function StoriesManager() {
   const [editingStory, setEditingStory] = useState<Story | null>(null);
   const [sortField, setSortField] = useState<'published_date'>('published_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [authors, setAuthors] = useState<Author[]>([]);
+
 
   useEffect(() => {
     fetchStories();
+    fetchAuthors();
   }, []);
 
   const fetchStories = async () => {
@@ -1270,6 +1293,13 @@ function StoriesManager() {
     setLoading(false);
   };
 
+  const authorsById = useMemo(() => {
+  const map = new Map<string, Author>();
+  for (const a of authors) map.set(a.id, a);
+  return map;
+}, [authors]);
+
+
   const handleSort = (field: 'published_date') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -1278,6 +1308,18 @@ function StoriesManager() {
       setSortDirection('desc');
     }
   };
+
+  const fetchAuthors = async () => {
+  try {
+    const res = await fetch('/api/authors');
+    const data = await res.json();
+    setAuthors(Array.isArray(data) ? data : []);
+  } catch (e) {
+    console.error('Error fetching authors:', e);
+    setAuthors([]);
+  }
+};
+
 
   const sortedStories = useMemo(() => {
     const sorted = [...stories].sort((a, b) => {
@@ -1328,10 +1370,8 @@ function StoriesManager() {
       </div>
 
       {showForm && (
-        <StoryForm
-          story={editingStory}
-          onClose={handleFormClose}
-        />
+      <StoryForm story={editingStory} onClose={handleFormClose} authors={authors} />
+
       )}
 
       {!showForm && (
@@ -1360,7 +1400,12 @@ function StoriesManager() {
               {sortedStories.map((story) => (
                 <tr key={story.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-sm">{story.title}</td>
-                  <td className="px-4 py-3 text-sm">{story.author}</td>
+                  <td className="px-4 py-3 text-sm">
+  {story.author_id && authorsById.get(story.author_id)?.name
+    ? authorsById.get(story.author_id)!.name
+    : (story.author || '—')}
+</td>
+
                   <td className="px-4 py-3 text-sm">{new Date(story.published_date).toLocaleDateString()}</td>
                   <td className="px-4 py-3 text-sm">
                     {story.featured ? (
@@ -1398,19 +1443,29 @@ function StoriesManager() {
   );
 }
 
-function StoryForm({ story, onClose }: { story: Story | null; onClose: () => void }) {
-  const [formData, setFormData] = useState({
-    title: story?.title || '',
-    slug: story?.slug || '',
-    excerpt: story?.excerpt || '',
-    content: story?.content || '',
-    author: story?.author || 'Kas',
-    cover_image: story?.cover_image || '',
-    published_date: story?.published_date || new Date().toISOString().split('T')[0],
-    featured: story?.featured || false,
-    story_type: story?.story_type || '',
-    event_id: story?.event_id || null,
-  });
+function StoryForm({
+  story,
+  onClose,
+  authors,
+}: {
+  story: Story | null;
+  onClose: () => void;
+  authors: Author[];
+}) {
+
+const [formData, setFormData] = useState({
+  title: story?.title || '',
+  slug: story?.slug || '',
+  excerpt: story?.excerpt || '',
+  content: story?.content || '',
+  author_id: story?.author_id || null,
+  cover_image: story?.cover_image || '',
+  published_date: story?.published_date || new Date().toISOString().split('T')[0],
+  featured: story?.featured || false,
+  story_type: story?.story_type || '',
+  event_id: story?.event_id || null,
+});
+
   const [saving, setSaving] = useState(false);
 
   const handleTitleChange = (title: string) => {
@@ -1466,16 +1521,25 @@ function StoryForm({ story, onClose }: { story: Story | null; onClose: () => voi
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-semibold mb-2 text-gray-700">Author *</label>
-          <input
-            type="text"
-            required
-            value={formData.author}
-            onChange={(e) => setFormData({ ...formData, author: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-          />
-        </div>
+       <div>
+  <label className="block text-sm font-semibold mb-2 text-gray-700">Author *</label>
+  <select
+    required
+    value={formData.author_id ?? ''}
+    onChange={(e) =>
+      setFormData({ ...formData, author_id: e.target.value ? e.target.value : null })
+    }
+    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+  >
+    <option value="">Select an author</option>
+    {authors.map((a) => (
+      <option key={a.id} value={a.id}>
+        {a.name}
+      </option>
+    ))}
+  </select>
+</div>
+
 
         <div>
           <label className="block text-sm font-semibold mb-2 text-gray-700">Published Date *</label>
@@ -1566,6 +1630,8 @@ function StoryForm({ story, onClose }: { story: Story | null; onClose: () => voi
     </form>
   );
 }
+
+
 /* ------------------------ Subscribers Manager ------------------------ */
 
 function SubscribersManager() {
@@ -1776,6 +1842,291 @@ function SubscribersManager() {
     </div>
   );
 }
+/* --------------------------- Authors Manager --------------------------- */
+
+function AuthorsManager() {
+  const [authors, setAuthors] = useState<Author[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Author | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    slug: '',
+    bio: '',
+    favorite_event_type: '',
+    avatar_url: '',
+  });
+
+  const resetForm = () => {
+    setFormData({ name: '', slug: '', bio: '', favorite_event_type: '', avatar_url: '' });
+  };
+
+  const openCreate = () => {
+    setEditing(null);
+    resetForm();
+    setShowForm(true);
+  };
+
+  const openEdit = (a: Author) => {
+    setEditing(a);
+    setFormData({
+      name: a.name || '',
+      slug: a.slug || '',
+      bio: a.bio || '',
+      favorite_event_type: a.favorite_event_type || '',
+      avatar_url: a.avatar_url || '',
+    });
+    setShowForm(true);
+  };
+
+  const close = () => {
+    setShowForm(false);
+    setEditing(null);
+    resetForm();
+  };
+
+  const fetchAuthors = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/authors', { method: 'GET' });
+      const json = await res.json().catch(() => ([]));
+      setAuthors(Array.isArray(json) ? json : []);
+    } catch (e) {
+      console.error('Error fetching authors:', e);
+      setAuthors([]);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchAuthors();
+  }, []);
+
+  const handleNameChange = (name: string) => {
+    const nextSlug = slugify(name);
+    setFormData((prev) => ({
+      ...prev,
+      name,
+      slug: prev.slug ? prev.slug : nextSlug,
+    }));
+  };
+
+  const saveAuthor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const payload = {
+        name: formData.name.trim(),
+        slug: formData.slug.trim(),
+        bio: formData.bio.trim() || null,
+        favorite_event_type: formData.favorite_event_type.trim() || null,
+        avatar_url: formData.avatar_url.trim() || null,
+      };
+
+      if (!payload.name) {
+        alert('Name is required.');
+        setSaving(false);
+        return;
+      }
+
+      if (!payload.slug) {
+        alert('Slug is required.');
+        setSaving(false);
+        return;
+      }
+
+      const url = editing ? `/api/admin/authors/${editing.id}` : '/api/admin/authors';
+      const method = editing ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(json?.error || 'Failed to save author.');
+        setSaving(false);
+        return;
+      }
+
+      await fetchAuthors();
+      close();
+    } catch (e) {
+      console.error('Save author error:', e);
+      alert('Failed to save author.');
+    }
+
+    setSaving(false);
+  };
+
+  const deleteAuthor = async (a: Author) => {
+    if (!confirm(`Delete author "${a.name}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/admin/authors/${a.id}`, { method: 'DELETE' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(json?.error || 'Failed to delete author.');
+        return;
+      }
+      await fetchAuthors();
+    } catch (e) {
+      console.error('Delete author error:', e);
+      alert('Failed to delete author.');
+    }
+  };
+
+  if (loading) return <div className="text-gray-600">Loading authors...</div>;
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">Authors</h2>
+          <p className="text-sm text-gray-600 mt-1">Create and manage story authors.</p>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={fetchAuthors}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+          >
+            Refresh
+          </button>
+          <button
+            onClick={openCreate}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          >
+            + Add Author
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <form onSubmit={saveAuthor} className="mb-6 p-6 bg-gray-50 rounded-lg border">
+          <h3 className="text-lg font-bold mb-4 text-gray-800">
+            {editing ? 'Edit Author' : 'Add New Author'}
+          </h3>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Name *</label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => handleNameChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Slug *</label>
+              <input
+                type="text"
+                required
+                value={formData.slug}
+                onChange={(e) => setFormData((p) => ({ ...p, slug: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Bio</label>
+              <textarea
+                value={formData.bio}
+                onChange={(e) => setFormData((p) => ({ ...p, bio: e.target.value }))}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Favorite Event Type</label>
+              <input
+                type="text"
+                value={formData.favorite_event_type}
+                onChange={(e) => setFormData((p) => ({ ...p, favorite_event_type: e.target.value }))}
+                placeholder="Live Music"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-gray-700">Avatar URL</label>
+              <input
+                type="url"
+                value={formData.avatar_url}
+                onChange={(e) => setFormData((p) => ({ ...p, avatar_url: e.target.value }))}
+                placeholder="https://..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : editing ? 'Update Author' : 'Create Author'}
+            </button>
+            <button
+              type="button"
+              onClick={close}
+              className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {!showForm && (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Slug</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Favorite</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {authors.map((a) => (
+                <tr key={a.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-semibold text-gray-900">{a.name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700">{a.slug}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700">{a.favorite_event_type || '—'}</td>
+                  <td className="px-4 py-3 text-sm">
+                    <button onClick={() => openEdit(a)} className="text-blue-600 hover:text-blue-800 mr-3">
+                      Edit
+                    </button>
+                    <button onClick={() => deleteAuthor(a)} className="text-red-600 hover:text-red-800">
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {authors.length === 0 && (
+            <div className="text-center py-8 text-gray-500">No authors yet. Add one above.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ------------------------ Submissions Manager ------------------------ */
 
 function SubmissionsManager() {
