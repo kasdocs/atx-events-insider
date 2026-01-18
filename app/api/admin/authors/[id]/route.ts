@@ -7,11 +7,15 @@ async function checkAuth() {
   return cookieStore.get('admin-authenticated')?.value === 'true';
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     if (!(await checkAuth())) return new NextResponse('Unauthorized', { status: 401 });
 
-    const id = String(params?.id || '').trim();
+    const { id: rawId } = await params;
+    const id = String(rawId || '').trim();
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
     const supabase = createSupabaseAdminClient();
@@ -21,7 +25,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     if (body?.name !== undefined) payload.name = String(body.name || '').trim();
     if (body?.slug !== undefined) payload.slug = String(body.slug || '').trim();
     if (body?.bio !== undefined) payload.bio = body.bio ?? null;
-    if (body?.favorite_event_type !== undefined) payload.favorite_event_type = body.favorite_event_type ?? null;
+    if (body?.favorite_event_type !== undefined)
+      payload.favorite_event_type = body.favorite_event_type ?? null;
     if (body?.avatar_url !== undefined) payload.avatar_url = body.avatar_url ?? null;
 
     if (payload.name !== undefined && !payload.name) {
@@ -50,11 +55,15 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  _: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     if (!(await checkAuth())) return new NextResponse('Unauthorized', { status: 401 });
 
-    const id = String(params?.id || '').trim();
+    const { id: rawId } = await params;
+    const id = String(rawId || '').trim();
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
     const supabase = createSupabaseAdminClient();
