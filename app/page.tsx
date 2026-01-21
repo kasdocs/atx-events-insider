@@ -95,23 +95,24 @@ export default async function Home() {
   });
 
   // 2) Fetch featured events (ranked) from your public API route
-  let featuredEvents: EventRow[] = [];
-  try {
-    const res = await fetch(`${getBaseUrl()}/api/featured`, { cache: 'no-store' });
+let featuredEvents: EventRow[] = [];
+try {
+  const baseUrl = await getBaseUrl();
+  const res = await fetch(`${baseUrl}/api/featured`, { cache: 'no-store' });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('Error fetching featured events:', res.status, errText);
-    } else {
-      const json = (await res.json()) as FeaturedApiResponse;
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error('Error fetching featured events:', res.status, errText);
+  } else {
+    const json = (await res.json()) as FeaturedApiResponse;
 
-      featuredEvents = (json.featured ?? [])
-        .map((row) => row.events)
-        .filter((e): e is EventRow => !!e);
-    }
-  } catch (e) {
-    console.error('Error fetching featured events:', e);
+    featuredEvents = (json.featured ?? [])
+      .map((row) => row.events)
+      .filter((e): e is EventRow => !!e);
   }
+} catch (e) {
+  console.error('Error fetching featured events:', e);
+}
 
   // Optional: remove featured items from Free This Weekend to avoid duplicates
   const featuredIds = new Set(featuredEvents.map((e) => e.id));

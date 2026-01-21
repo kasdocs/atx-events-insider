@@ -6,18 +6,16 @@ import RSVPWidget from '@/app/components/RSVPWidget';
 import CopyLinkButton from '@/app/components/CopyLinkButton';
 import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 import type { Database } from '@/lib/database.types';
+import TrackEventView from './TrackEventView';
+import TrackedOutboundLink from '@/app/components/TrackedOutboundLink';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
 
-// ✅ Change this if Kas's author slug is different
+// Change this if Kas's author slug is different
 const KAS_AUTHOR_SLUG = 'kas';
 const KAS_AUTHOR_HREF = `/authors/${KAS_AUTHOR_SLUG}`;
 
-export default async function EventDetailPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
   const supabase = createSupabaseServerAnonClient();
@@ -29,6 +27,15 @@ export default async function EventDetailPage({
     .single<EventRow>();
 
   if (error || !event) notFound();
+
+  // Public-only count, using the SECURITY DEFINER RPC you created
+  let goingCount = 0;
+  try {
+    const { data, error: goingErr } = await (supabase as any).rpc('get_going_count', { p_event_id: event.id });
+    if (!goingErr) goingCount = Number(data ?? 0) || 0;
+  } catch {
+    goingCount = 0;
+  }
 
   let similarEvents: EventRow[] = [];
   if (event.event_type) {
@@ -72,9 +79,7 @@ export default async function EventDetailPage({
   };
 
   const getPricingColor = () => {
-    if (event.pricing_type === 'Free' || event.pricing_type === 'Free with RSVP') {
-      return '#06D6A0';
-    }
+    if (event.pricing_type === 'Free' || event.pricing_type === 'Free with RSVP') return '#06D6A0';
     return '#FF8500';
   };
 
@@ -90,6 +95,9 @@ export default async function EventDetailPage({
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
+
+      {/* Analytics tracking (writes only) */}
+      <TrackEventView eventId={event.id} pathname={`/events/${slug}`} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <a
@@ -140,7 +148,6 @@ export default async function EventDetailPage({
 
             {event.insider_tip && (
               <div className="mb-8 p-6 bg-purple-50 rounded-xl border border-purple-100">
-                {/* ✅ Link the author name to bio */}
                 <a
                   href={KAS_AUTHOR_HREF}
                   className="group flex items-center justify-between gap-3 mb-3"
@@ -180,8 +187,9 @@ export default async function EventDetailPage({
                     </span>
                   </div>
 
-                  {/* RSVP */}
                   <RSVPWidget eventId={event.id} returnTo={`/events/${slug}`} />
+
+
 
                   {vibeTags.length > 0 && (
                     <div>
@@ -236,16 +244,29 @@ export default async function EventDetailPage({
 
                 <div className="mt-6 space-y-3">
                   {event.instagram_url && (
-                    <a
+                    <TrackedOutboundLink
+                      eventId={event.id}
                       href={event.instagram_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block w-full py-3 text-center font-semibold rounded-lg text-white transition-opacity hover:opacity-90"
-                      style={{ backgroundColor: '#7B2CBF' }}
+                      kind="instagram"
+                      pathname={`/events/${slug}`}
+                      className="block w-full py-3 text-center font-semibold rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors"
                     >
                       📲 View on Instagram
-                    </a>
+                    </TrackedOutboundLink>
                   )}
+
+                  {/* If you add a ticket link later, use kind="ticket" to track "Ticket clicks" */}
+                  {/* {event.ticket_url && (
+                    <TrackedOutboundLink
+                      eventId={event.id}
+                      href={event.ticket_url}
+                      kind="ticket"
+                      pathname={`/events/${slug}`}
+                      className="block w-full py-3 text-center font-semibold rounded-lg bg-gray-900 text-white hover:opacity-90 transition-opacity"
+                    >
+                      🎟️ Get Tickets
+                    </TrackedOutboundLink>
+                  )} */}
                 </div>
               </div>
 

@@ -44,6 +44,100 @@ export type Database = {
         }
         Relationships: []
       }
+      event_analytics_daily: {
+        Row: {
+          day: string
+          event_id: number
+          outbound_clicks: number
+          outbound_clicks_instagram: number
+          outbound_clicks_ticket: number
+          rsvps: number
+          saves: number
+          unique_viewers: number
+          updated_at: string
+          views: number
+        }
+        Insert: {
+          day: string
+          event_id: number
+          outbound_clicks?: number
+          outbound_clicks_instagram?: number
+          outbound_clicks_ticket?: number
+          rsvps?: number
+          saves?: number
+          unique_viewers?: number
+          updated_at?: string
+          views?: number
+        }
+        Update: {
+          day?: string
+          event_id?: number
+          outbound_clicks?: number
+          outbound_clicks_instagram?: number
+          outbound_clicks_ticket?: number
+          rsvps?: number
+          saves?: number
+          unique_viewers?: number
+          updated_at?: string
+          views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_analytics_daily_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_analytics_events: {
+        Row: {
+          event_id: number
+          event_name: Database["public"]["Enums"]["analytics_event_name"]
+          id: number
+          meta: Json
+          occurred_at: string
+          pathname: string | null
+          referrer: string | null
+          session_id: string
+          user_id: string | null
+          viewer_id: string
+        }
+        Insert: {
+          event_id: number
+          event_name: Database["public"]["Enums"]["analytics_event_name"]
+          id?: number
+          meta?: Json
+          occurred_at?: string
+          pathname?: string | null
+          referrer?: string | null
+          session_id: string
+          user_id?: string | null
+          viewer_id: string
+        }
+        Update: {
+          event_id?: number
+          event_name?: Database["public"]["Enums"]["analytics_event_name"]
+          id?: number
+          meta?: Json
+          occurred_at?: string
+          pathname?: string | null
+          referrer?: string | null
+          session_id?: string
+          user_id?: string | null
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_analytics_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_rsvps: {
         Row: {
           created_at: string
@@ -154,6 +248,96 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: []
+      }
+      event_unique_viewers_daily: {
+        Row: {
+          day: string
+          event_id: number
+          first_seen_at: string
+          viewer_key: string
+        }
+        Insert: {
+          day: string
+          event_id: number
+          first_seen_at?: string
+          viewer_key: string
+        }
+        Update: {
+          day?: string
+          event_id?: number
+          first_seen_at?: string
+          viewer_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_unique_viewers_daily_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_view_sessions: {
+        Row: {
+          event_id: number
+          first_viewed_at: string
+          last_viewed_at: string
+          session_id: string
+          view_count: number
+          viewer_key: string
+        }
+        Insert: {
+          event_id: number
+          first_viewed_at?: string
+          last_viewed_at?: string
+          session_id: string
+          view_count?: number
+          viewer_key: string
+        }
+        Update: {
+          event_id?: number
+          first_viewed_at?: string
+          last_viewed_at?: string
+          session_id?: string
+          view_count?: number
+          viewer_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_view_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_views: {
+        Row: {
+          event_id: number
+          id: number
+          viewed_at: string
+        }
+        Insert: {
+          event_id: number
+          id?: number
+          viewed_at?: string
+        }
+        Update: {
+          event_id?: number
+          id?: number
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_views_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       events: {
         Row: {
@@ -504,9 +688,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      track_event_view: {
+        Args: {
+          p_event_id: number
+          p_pathname?: string
+          p_referrer?: string
+          p_session_id: string
+          p_viewer_id: string
+        }
+        Returns: undefined
+      }
+      viewer_key: {
+        Args: { p_user_id: string; p_viewer_id: string }
+        Returns: string
+      }
     }
     Enums: {
+      analytics_event_name:
+        | "view"
+        | "save"
+        | "unsave"
+        | "rsvp"
+        | "unrsvp"
+        | "outbound_click"
       vibe:
         | "good_for_groups"
         | "meet_people"
@@ -667,6 +871,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      analytics_event_name: [
+        "view",
+        "save",
+        "unsave",
+        "rsvp",
+        "unrsvp",
+        "outbound_click",
+      ],
       vibe: [
         "good_for_groups",
         "meet_people",

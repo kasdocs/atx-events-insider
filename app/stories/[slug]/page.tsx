@@ -1,25 +1,20 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import Navbar from '@/app/components/Navbar';
 import EventCard from '@/app/components/EventCard';
-import NewsletterSignup from '@/app/components/NewsletterSignup';
+import SaveToggleButton from '@/app/components/SaveToggleButton';
+import RSVPWidget from '@/app/components/RSVPWidget';
+import CopyLinkButton from '@/app/components/CopyLinkButton';
+import EventViewTracker from '@/app/components/EventViewTracker';
 import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 import type { Database } from '@/lib/database.types';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
 
-// Local “safe” story type that includes author_id even if your database.types.ts is stale
-type StoryRowSafe = Database['public']['Tables']['stories']['Row'] & {
-  author_id?: string | null;
-};
+// ✅ Change this if Kas's author slug is different
+const KAS_AUTHOR_SLUG = 'kas';
+const KAS_AUTHOR_HREF = `/authors/${KAS_AUTHOR_SLUG}`;
 
-type AuthorPreview = {
-  name: string | null;
-  slug: string | null;
-  avatar_url: string | null;
-};
-
-export default async function StoryDetailPage({
+export default async function EventDetailPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -28,54 +23,30 @@ export default async function StoryDetailPage({
 
   const supabase = createSupabaseServerAnonClient();
 
-  const { data: story, error: storyErr } = await supabase
-    .from('stories')
+  const { data: event, error } = await supabase
+    .from('events')
     .select('*')
     .eq('slug', slug)
-    .single<StoryRowSafe>();
+    .single<EventRow>();
 
-  if (storyErr || !story) notFound();
+  if (error || !event) notFound();
 
-  // Fetch author (prefer author_id, fall back to legacy story.author string)
-  let author: AuthorPreview | null = null;
-
-  if (story.author_id) {
-    const { data: authorData, error: authorErr } = await supabase
-      .from('authors')
-      .select('name, slug, avatar_url')
-      .eq('id', story.author_id)
-      .maybeSingle();
-
-    if (!authorErr && authorData) {
-      author = authorData as AuthorPreview;
-    }
-  }
-
-  // Related event
-  let relatedEvent: EventRow | null = null;
-
-  if (story.event_id) {
-    const { data: eventData, error: eventErr } = await supabase
+  let similarEvents: EventRow[] = [];
+  if (event.event_type) {
+    const { data } = await supabase
       .from('events')
       .select('*')
-      .eq('id', story.event_id)
-      .single<EventRow>();
+      .eq('event_type', event.event_type)
+      .neq('slug', slug)
+      .limit(3)
+      .returns<EventRow[]>();
 
-    if (!eventErr && eventData) relatedEvent = eventData;
+    similarEvents = data ?? [];
   }
 
-  // Recent stories
-  const { data: recentStories } = await supabase
-    .from('stories')
-    .select('*')
-    .neq('id', story.id)
-    .order('published_date', { ascending: false })
-    .limit(3)
-    .returns<StoryRowSafe[]>();
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
+  const formatDate = (dateString: string) => {
+    const [year, month, day] = dateString.split('-');
+    const date = new Date(Number(year), Number(month) - 1, Number(day));
     return date.toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
@@ -84,155 +55,231 @@ export default async function StoryDetailPage({
     });
   };
 
-  const authorName = author?.name || story.author || 'Unknown';
-  const authorSlug = author?.slug || null;
+  const titleCase = (s: string) =>
+    s
+      .replaceAll('_', ' ')
+      .split(' ')
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+
+  const vibeTags: string[] = Array.isArray(event.vibe) ? event.vibe : [];
+  const formatVibe = (v: string) => titleCase(v);
+
+  const getPricingText = () => {
+    if (event.pricing_type === 'Free') return '🎟️ FREE EVENT';
+    if (event.pricing_type === 'Free with RSVP') return '🎟️ FREE (RSVP Required)';
+    return '💵 PAID EVENT';
+  };
+
+  const getPricingColor = () => {
+    if (event.pricing_type === 'Free' || event.pricing_type === 'Free with RSVP') {
+      return '#06D6A0';
+    }
+    return '#FF8500';
+  };
+
+  const dateLabel = event.event_date ? formatDate(event.event_date) : 'Date TBD';
+
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/$/, '');
+  const shareUrl = siteUrl ? `${siteUrl}/events/${slug}` : `/events/${slug}`;
+
+  const emailSubject = encodeURIComponent(event.title ?? 'ATX Events Insider event');
+  const emailBody = encodeURIComponent(`Check this out:\n\n${shareUrl}`);
+  const emailHref = `mailto:?subject=${emailSubject}&body=${emailBody}`;
 
   return (
     <div className="min-h-screen bg-white">
+      {/* ✅ Tracks views client-side (session-deduped by your API) */}
+      <EventViewTracker eventId={event.id} />
+
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <a
-          href="/stories"
+          href="/"
           className="text-gray-600 hover:text-purple-600 flex items-center gap-2 text-sm font-semibold"
         >
-          ← Back to Stories
+          ← Back to Events
         </a>
       </div>
 
-      <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        <div className="flex gap-3 mb-4 flex-wrap">
-          {story.featured && (
-            <span
-              className="inline-block px-4 py-2 text-sm font-semibold rounded-full text-white"
-              style={{ backgroundColor: '#FF006E' }}
-            >
-              ⭐ Featured Story
-            </span>
-          )}
-          {story.story_type && (
-            <span className="inline-block px-4 py-2 text-sm font-semibold rounded-full bg-purple-100 text-purple-700">
-              {story.story_type}
-            </span>
-          )}
-        </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* 1) Main content */}
+          <div className="order-1 lg:order-1 lg:col-span-8">
+            {/* Title + Location + Save button row */}
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div className="min-w-0">
+                <h1 className="text-4xl font-bold mb-2" style={{ color: '#7B2CBF' }}>
+                  {event.title ?? 'Untitled Event'}
+                </h1>
+                <p className="text-xl text-gray-600">📍 {event.location ?? 'Location TBD'}</p>
+              </div>
 
-        <h1 className="text-5xl font-bold mb-4" style={{ color: '#7B2CBF' }}>
-          {story.title}
-        </h1>
+              <div className="shrink-0 pt-1">
+                <SaveToggleButton eventId={event.id} />
+              </div>
+            </div>
 
-        <div className="flex items-center gap-4 text-gray-600 mb-8 pb-8 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            {author?.avatar_url ? (
+            <div className="mb-8">
               <img
-                src={author.avatar_url}
-                alt={authorName}
-                className="h-9 w-9 rounded-full object-cover border border-gray-200"
+                src={
+                  event.image_url ||
+                  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800'
+                }
+                alt={event.title ?? 'Event'}
+                className="w-full rounded-xl shadow-lg"
               />
-            ) : (
-              <div className="h-9 w-9 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold border border-purple-200">
-                {authorName.slice(0, 1).toUpperCase()}
+            </div>
+
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold mb-4" style={{ color: '#7B2CBF' }}>
+                About This Event
+              </h2>
+              <p className="text-gray-700 leading-relaxed">
+                {event.description || 'Join us for this amazing event in Austin!'}
+              </p>
+            </div>
+
+            {event.insider_tip && (
+              <div className="mb-8 p-6 bg-purple-50 rounded-xl border border-purple-100">
+                {/* ✅ Link the author name to bio */}
+                <a href={KAS_AUTHOR_HREF} className="group flex items-center justify-between gap-3 mb-3">
+                  <h3
+                    className="text-xl font-bold group-hover:text-purple-700 transition-colors"
+                    style={{ color: '#7B2CBF' }}
+                  >
+                    💡 Insider Tip from Kas
+                  </h3>
+
+                  <span className="text-sm font-semibold text-purple-700 group-hover:underline">
+                    View bio →
+                  </span>
+                </a>
+
+                <div className="text-sm text-gray-600">{event.insider_tip}</div>
               </div>
             )}
-
-            {authorSlug ? (
-              <Link
-                href={`/authors/${authorSlug}`}
-                className="font-semibold hover:text-purple-700 transition-colors"
-              >
-                By {authorName}
-              </Link>
-            ) : (
-              <span className="font-semibold">By {authorName}</span>
-            )}
           </div>
 
-          <span>•</span>
-          <span>{formatDate(story.published_date)}</span>
-        </div>
+          {/* 2) Sidebar details */}
+          <div className="order-2 lg:order-2 lg:col-span-4">
+            <div className="lg:sticky lg:top-24 space-y-6">
+              <div className="bg-white border-2 border-purple-200 rounded-xl p-6">
+                <h3 className="text-xl font-bold mb-4" style={{ color: '#7B2CBF' }}>
+                  Event Details
+                </h3>
 
-        <div className="mb-8 rounded-xl overflow-hidden">
-          <img
-            src={
-              story.cover_image ||
-              'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1200'
-            }
-            alt={story.title ?? 'Story'}
-            className="w-full"
-          />
-        </div>
-
-        {story.excerpt && (
-          <div className="text-xl text-gray-700 mb-8 p-6 bg-purple-50 rounded-xl border-l-4 border-purple-600">
-            {story.excerpt}
-          </div>
-        )}
-
-        <div className="prose prose-lg max-w-none">
-          <div className="text-gray-800 leading-relaxed whitespace-pre-line">{story.content || ''}</div>
-        </div>
-
-        {relatedEvent && (
-          <div className="mt-12 pt-12 border-t border-gray-200">
-            <h2 className="text-2xl font-bold mb-6" style={{ color: '#7B2CBF' }}>
-              📅 Attend This Event
-            </h2>
-            <div className="max-w-md">
-              <EventCard event={relatedEvent} />
-            </div>
-          </div>
-        )}
-
-        {recentStories && recentStories.length > 0 && (
-          <div className="mt-12 pt-12 border-t border-gray-200">
-            <h2 className="text-2xl font-bold mb-6" style={{ color: '#7B2CBF' }}>
-              More Stories
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {recentStories.map((recentStory) => (
-                <a key={recentStory.id} href={`/stories/${recentStory.slug}`} className="group">
-                  <div className="bg-white rounded-lg overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow">
-                    <div className="aspect-video bg-gray-200">
-                      <img
-                        src={
-                          recentStory.cover_image ||
-                          'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1200'
-                        }
-                        alt={recentStory.title ?? 'Story'}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    </div>
-                    <div className="p-4">
-                      <div className="flex gap-2 mb-2 flex-wrap">
-                        {recentStory.featured && (
-                          <span className="inline-block px-2 py-0.5 bg-pink-500 text-white text-xs font-semibold rounded">
-                            ⭐ Featured
-                          </span>
-                        )}
-                        {recentStory.story_type && (
-                          <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
-                            {recentStory.story_type}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="font-bold text-sm mb-2 group-hover:text-purple-600 line-clamp-2">
-                        {recentStory.title}
-                      </h3>
-                      <p className="text-xs text-gray-500">{formatDate(recentStory.published_date)}</p>
-                    </div>
+                <div className="space-y-4">
+                  <div>
+                    <span
+                      className="px-4 py-2 text-base font-semibold rounded-full text-white inline-block"
+                      style={{ backgroundColor: getPricingColor() }}
+                    >
+                      {getPricingText()}
+                    </span>
                   </div>
-                </a>
-              ))}
+
+                  {/* RSVP */}
+                  <RSVPWidget eventId={event.id} returnTo={`/events/${slug}`} />
+
+                  {vibeTags.length > 0 && (
+                    <div>
+                      <div className="text-sm text-gray-500 mb-2">✨ Vibe</div>
+                      <div className="flex flex-wrap gap-2">
+                        {vibeTags.slice(0, 3).map((v) => (
+                          <span
+                            key={v}
+                            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full"
+                          >
+                            {formatVibe(v)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="text-sm text-gray-500 mb-1">📅 Date</div>
+                    <div className="font-semibold">{dateLabel}</div>
+                  </div>
+
+                  {event.time && (
+                    <div>
+                      <div className="text-sm text-gray-500 mb-1">🕐 Time</div>
+                      <div className="font-semibold">{event.time}</div>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="text-sm text-gray-500 mb-1">📍 Location</div>
+                    <div className="font-semibold">{event.location ?? 'Location TBD'}</div>
+                    {event.neighborhood && <div className="text-sm text-gray-600">{event.neighborhood}</div>}
+                  </div>
+
+                  <div>
+                    <div className="text-sm text-gray-500 mb-1">🎭 Category</div>
+                    <span className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full">
+                      {event.event_type ?? 'Uncategorized'}
+                    </span>
+                  </div>
+
+                  {event.price && (
+                    <div>
+                      <div className="text-sm text-gray-500 mb-1">💵 Price</div>
+                      <div className="font-semibold">{event.price}</div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 space-y-3">
+                  {event.instagram_url && (
+                    <a
+                      href={event.instagram_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full py-3 text-center font-semibold rounded-lg text-white transition-opacity hover:opacity-90"
+                      style={{ backgroundColor: '#7B2CBF' }}
+                    >
+                      📲 View on Instagram
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-xl p-6 border border-gray-200">
+                <h3 className="text-lg font-bold mb-3" style={{ color: '#FF006E' }}>
+                  Share This Event
+                </h3>
+                <div className="flex gap-3">
+                  <CopyLinkButton url={shareUrl} />
+                  <a
+                    href={emailHref}
+                    className="flex-1 py-2 bg-white rounded-lg hover:bg-gray-50 transition-colors text-sm font-semibold text-center"
+                  >
+                    📧 Email
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
-        )}
 
-        <div className="mt-12 pt-8 border-t border-gray-200">
-          <div className="max-w-md mx-auto">
-            <NewsletterSignup source="story-page" />
-          </div>
+          {/* 3) Similar events */}
+          {similarEvents.length > 0 && (
+            <div className="order-3 lg:order-3 lg:col-span-8 lg:col-start-1">
+              <h2 className="text-2xl font-bold mb-6" style={{ color: '#7B2CBF' }}>
+                Similar Events
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {similarEvents.map((similarEvent) => (
+                  <EventCard key={similarEvent.id} event={similarEvent} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </article>
+      </div>
     </div>
   );
 }
