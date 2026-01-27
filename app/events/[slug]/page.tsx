@@ -8,12 +8,19 @@ import { createSupabaseServerAnonClient } from '@/lib/supabase-server';
 import type { Database } from '@/lib/database.types';
 import TrackEventView from './TrackEventView';
 import TrackedOutboundLink from '@/app/components/TrackedOutboundLink';
+import EventLocationMapSafe from '@/app/components/EventLocationMapSafe';
+import { ensureEventGeocoded } from '@/lib/geocode-event';
 
 type EventRow = Database['public']['Tables']['events']['Row'];
 
 // Change this if Kas's author slug is different
 const KAS_AUTHOR_SLUG = 'kas';
 const KAS_AUTHOR_HREF = `/authors/${KAS_AUTHOR_SLUG}`;
+
+function buildGoogleMapsHref(locationText: string) {
+  const q = encodeURIComponent(locationText);
+  return `https://www.google.com/maps/search/?api=1&query=${q}`;
+}
 
 export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -92,6 +99,16 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
   const emailBody = encodeURIComponent(`Check this out:\n\n${shareUrl}`);
   const emailHref = `mailto:?subject=${emailSubject}&body=${emailBody}`;
 
+  // Ensure geocoding is cached for this event (server-side)
+  // This uses service role only on the server and stores lat/lng in the events table.
+  const geo = await ensureEventGeocoded(event.id);
+
+  const mapLat = typeof geo.latitude === 'number' ? geo.latitude : null;
+  const mapLng = typeof geo.longitude === 'number' ? geo.longitude : null;
+
+  const locationText = event.location ?? 'Location TBD';
+  const googleMapsHref = geo.google_maps_href ?? (event.location ? buildGoogleMapsHref(event.location) : null);
+
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
@@ -100,10 +117,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
       <TrackEventView eventId={event.id} pathname={`/events/${slug}`} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <a
-          href="/"
-          className="text-gray-600 hover:text-purple-600 flex items-center gap-2 text-sm font-semibold"
-        >
+        <a href="/" className="text-gray-600 hover:text-purple-600 flex items-center gap-2 text-sm font-semibold">
           ← Back to Events
         </a>
       </div>
@@ -118,7 +132,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
                 <h1 className="text-4xl font-bold mb-2" style={{ color: '#7B2CBF' }}>
                   {event.title ?? 'Untitled Event'}
                 </h1>
-                <p className="text-xl text-gray-600">📍 {event.location ?? 'Location TBD'}</p>
+                <p className="text-xl text-gray-600">📍 {locationText}</p>
               </div>
 
               <div className="shrink-0 pt-1">
@@ -128,10 +142,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
 
             <div className="mb-8">
               <img
-                src={
-                  event.image_url ||
-                  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800'
-                }
+                src={event.image_url || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800'}
                 alt={event.title ?? 'Event'}
                 className="w-full rounded-xl shadow-lg"
               />
@@ -141,17 +152,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               <h2 className="text-2xl font-bold mb-4" style={{ color: '#7B2CBF' }}>
                 About This Event
               </h2>
-              <p className="text-gray-700 leading-relaxed">
-                {event.description || 'Join us for this amazing event in Austin!'}
-              </p>
+              <p className="text-gray-700 leading-relaxed">{event.description || 'Join us for this amazing event in Austin!'}</p>
             </div>
 
             {event.insider_tip && (
               <div className="mb-8 p-6 bg-purple-50 rounded-xl border border-purple-100">
-                <a
-                  href={KAS_AUTHOR_HREF}
-                  className="group flex items-center justify-between gap-3 mb-3"
-                >
+                <a href={KAS_AUTHOR_HREF} className="group flex items-center justify-between gap-3 mb-3">
                   <h3
                     className="text-xl font-bold group-hover:text-purple-700 transition-colors"
                     style={{ color: '#7B2CBF' }}
@@ -159,9 +165,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
                     💡 Insider Tip from Kas
                   </h3>
 
-                  <span className="text-sm font-semibold text-purple-700 group-hover:underline">
-                    View bio →
-                  </span>
+                  <span className="text-sm font-semibold text-purple-700 group-hover:underline">View bio →</span>
                 </a>
 
                 <div className="text-sm text-gray-600">{event.insider_tip}</div>
@@ -189,17 +193,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
 
                   <RSVPWidget eventId={event.id} returnTo={`/events/${slug}`} />
 
-
-
                   {vibeTags.length > 0 && (
                     <div>
                       <div className="text-sm text-gray-500 mb-2">✨ Vibe</div>
                       <div className="flex flex-wrap gap-2">
                         {vibeTags.slice(0, 3).map((v) => (
-                          <span
-                            key={v}
-                            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full"
-                          >
+                          <span key={v} className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full">
                             {formatVibe(v)}
                           </span>
                         ))}
@@ -221,10 +220,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
 
                   <div>
                     <div className="text-sm text-gray-500 mb-1">📍 Location</div>
-                    <div className="font-semibold">{event.location ?? 'Location TBD'}</div>
-                    {event.neighborhood && (
-                      <div className="text-sm text-gray-600">{event.neighborhood}</div>
-                    )}
+                    <div className="font-semibold">{locationText}</div>
+                    {event.neighborhood && <div className="text-sm text-gray-600">{event.neighborhood}</div>}
                   </div>
 
                   <div>
@@ -240,6 +237,54 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
                       <div className="font-semibold">{event.price}</div>
                     </div>
                   )}
+                </div>
+
+                {/* Location Map section */}
+                <div className="mt-6">
+                  <h4 className="text-lg font-bold mb-3" style={{ color: '#7B2CBF' }}>
+                    Location
+                  </h4>
+
+                  <div className="space-y-3">
+                    {mapLat != null && mapLng != null ? (
+                      <EventLocationMapSafe lat={mapLat} lng={mapLng} title={geo.geocode_place_name ?? event.location ?? null} />
+                    ) : (
+                      <div className="rounded-xl border border-purple-200 bg-purple-50 p-4">
+                        <div className="text-sm font-semibold text-gray-900">{locationText}</div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          Map is unavailable for this location.
+                        </div>
+
+                        {googleMapsHref ? (
+                          <a
+                            href={googleMapsHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex mt-3 text-sm font-semibold text-purple-700 hover:underline"
+                          >
+                            Open in Google Maps →
+                          </a>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {googleMapsHref ? (
+                      <a
+                        href={googleMapsHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm font-semibold text-purple-700 hover:underline"
+                      >
+                        Open in Google Maps →
+                      </a>
+                    ) : null}
+
+                    {geo.reason ? (
+                      <div className="text-xs text-gray-500">
+                        Geocode note: {geo.reason}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="mt-6 space-y-3">

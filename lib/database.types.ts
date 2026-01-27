@@ -86,6 +86,13 @@ export type Database = {
             foreignKeyName: "event_analytics_daily_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "event_popularity"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "event_analytics_daily_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -129,6 +136,13 @@ export type Database = {
           viewer_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "event_analytics_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_popularity"
+            referencedColumns: ["event_id"]
+          },
           {
             foreignKeyName: "event_analytics_events_event_id_fkey"
             columns: ["event_id"]
@@ -273,6 +287,13 @@ export type Database = {
             foreignKeyName: "event_unique_viewers_daily_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "event_popularity"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "event_unique_viewers_daily_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -308,6 +329,13 @@ export type Database = {
             foreignKeyName: "event_view_sessions_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "event_popularity"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "event_view_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -334,6 +362,13 @@ export type Database = {
             foreignKeyName: "event_views_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "event_popularity"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "event_views_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -346,12 +381,18 @@ export type Database = {
           event_date: string
           event_type: string
           featured_expires_at: string | null
+          geocode_place_name: string | null
+          geocode_provider: string | null
+          geocode_status: string
+          geocoded_at: string | null
           id: number
           image_url: string | null
           insider_tip: string | null
           instagram_url: string | null
           is_featured: boolean | null
+          latitude: number | null
           location: string
+          longitude: number | null
           neighborhood: string | null
           paid_promotion_notes: string | null
           price: string | null
@@ -371,12 +412,18 @@ export type Database = {
           event_date: string
           event_type: string
           featured_expires_at?: string | null
+          geocode_place_name?: string | null
+          geocode_provider?: string | null
+          geocode_status?: string
+          geocoded_at?: string | null
           id?: number
           image_url?: string | null
           insider_tip?: string | null
           instagram_url?: string | null
           is_featured?: boolean | null
+          latitude?: number | null
           location: string
+          longitude?: number | null
           neighborhood?: string | null
           paid_promotion_notes?: string | null
           price?: string | null
@@ -396,12 +443,18 @@ export type Database = {
           event_date?: string
           event_type?: string
           featured_expires_at?: string | null
+          geocode_place_name?: string | null
+          geocode_provider?: string | null
+          geocode_status?: string
+          geocoded_at?: string | null
           id?: number
           image_url?: string | null
           insider_tip?: string | null
           instagram_url?: string | null
           is_featured?: boolean | null
+          latitude?: number | null
           location?: string
+          longitude?: number | null
           neighborhood?: string | null
           paid_promotion_notes?: string | null
           price?: string | null
@@ -449,6 +502,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "featured_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "event_popularity"
+            referencedColumns: ["event_id"]
+          },
           {
             foreignKeyName: "featured_events_event_id_fkey"
             columns: ["event_id"]
@@ -569,6 +629,13 @@ export type Database = {
             foreignKeyName: "organizer_inquiries_linked_event_id_fkey"
             columns: ["linked_event_id"]
             isOneToOne: false
+            referencedRelation: "event_popularity"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "organizer_inquiries_linked_event_id_fkey"
+            columns: ["linked_event_id"]
+            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -594,6 +661,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "saved_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_popularity"
+            referencedColumns: ["event_id"]
+          },
           {
             foreignKeyName: "saved_events_event_id_fkey"
             columns: ["event_id"]
@@ -685,9 +759,32 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      event_popularity: {
+        Row: {
+          event_id: number | null
+          last_viewed_at: string | null
+          slug: string | null
+          title: string | null
+          total_views: number | null
+          unique_viewers: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      get_going_count: { Args: { p_event_id: number }; Returns: number }
+      track_event_outbound_click: {
+        Args: {
+          p_event_id: number
+          p_kind: string
+          p_pathname?: string
+          p_referrer?: string
+          p_session_id?: string
+          p_url?: string
+          p_viewer_id?: string
+        }
+        Returns: undefined
+      }
       track_event_view: {
         Args: {
           p_event_id: number
